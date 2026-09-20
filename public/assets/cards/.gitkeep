@@ -1,0 +1,3 @@
+Drop strategy card overrides here as <card-id>.png, e.g. diplomacy.png.
+The ids are the `id` fields in src/data/strategyCards.js. A file here wins
+over the wiki CDN — see the art section of the top-level README.
