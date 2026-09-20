@@ -716,3 +716,133 @@ button.vptarget__btn:hover { color: var(--ink); border-color: #55405a; }
 .cardpill--mini { height: 22px; padding: 0 10px; font-size: 14px; }
 .gameover__total { text-align: center; margin-top: 18px; }
 .gameover .screen__actions { justify-content: center; }
+
+/* -------------------------------------------------------------- objectives */
+
+/* The drop-down + commit button pair, used at setup, on reveal and on secrets. */
+.objpicker { display: flex; gap: 10px; align-items: stretch; }
+.objpicker__select { flex: 1; min-width: 0; }
+.objpicker__btn { flex: none; padding: 9px 18px; }
+
+/* --- setup: the two opening stage I objectives --- */
+
+.openobj { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 8px; }
+.openobj__slot {
+  display: grid; grid-template-columns: 22px 1fr; align-items: center; gap: 12px;
+  padding: 10px 14px; border-radius: 8px;
+  border: 1px dashed var(--line); background: rgba(255, 255, 255, .02);
+}
+.openobj__slot.is-set {
+  border-style: solid; border-color: var(--gold); background: var(--panel);
+}
+.openobj__n { color: var(--ink-dim); font-size: 12px; text-align: center; }
+.openobj__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.openobj__text--empty { color: var(--ink-dim); font-size: 13px; }
+.openobj__name { font-size: 15px; }
+.openobj__desc { color: var(--ink-dim); font-size: 13px; }
+
+/* --- status phase: the row of six players --- */
+
+.objplayers {
+  display: grid; gap: 10px; margin-bottom: 6px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+@media (max-width: 1000px) { .objplayers { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+.objplayer {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 8px 10px; min-height: 76px;
+  border: 1px solid var(--line); border-top: 4px solid var(--pc);
+  border-radius: var(--radius); background: var(--panel);
+  opacity: .72; transition: opacity 120ms ease, box-shadow 120ms ease;
+}
+/* The active player is lifted the same way the action phase lifts a turn. */
+.objplayer.is-active {
+  opacity: 1; border-color: var(--gold);
+  box-shadow: 0 0 0 1px rgba(216, 184, 106, .45);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--pc) 22%, var(--panel)) 0%, var(--panel) 70%);
+}
+
+.objplayer__head { display: flex; align-items: center; gap: 7px; }
+.objplayer__name {
+  font-size: 13px; font-weight: 600; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.objplayer__vp { margin-left: auto; font-size: 17px; font-weight: 700; }
+
+.objplayer__secrets { display: flex; flex-direction: column; gap: 3px; }
+.objplayer__secret {
+  display: block; cursor: help;
+  padding: 2px 6px; border-radius: 5px;
+  background: rgba(216, 184, 106, .12); border: 1px solid rgba(216, 184, 106, .3);
+  color: #e6cf84; font-size: 12px; line-height: 1.3;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.objplayer__secret:hover { background: rgba(216, 184, 106, .24); }
+
+/* The bubble the secrets hang off. Fixed, because it is portalled to <body>. */
+.hovertip {
+  position: fixed; z-index: 90; max-width: 320px; pointer-events: none;
+  padding: 8px 11px; border-radius: 8px;
+  border: 1px solid var(--gold); background: #0d1018;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .6);
+  font-size: 13px; line-height: 1.4; color: var(--ink);
+}
+
+/* --- status phase: the active player banner --- */
+
+.objbanner { display: flex; align-items: center; gap: 14px; margin: 12px 0 18px; flex-wrap: wrap; }
+.objbanner--done { --pc: #3a3a42; opacity: .8; }
+.objbanner__faction {
+  font-size: 22px; font-weight: 700; line-height: 1.1;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.objbanner__secret { flex: 1 1 380px; min-width: 260px; }
+.objbanner .objbanner__scored { color: var(--ink); font-size: 14px; }
+.objbanner__scored .objplayer__secret { display: inline-block; vertical-align: middle; }
+.objbanner__undo { padding: 7px 14px; font-size: 13px; }
+.objbanner__nav { display: flex; gap: 8px; margin-left: auto; }
+.objbanner__nav .btn { padding: 9px 16px; }
+
+/* --- status phase: the row of five stage I objectives --- */
+
+.objrow {
+  display: grid; gap: 12px; align-items: stretch;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+@media (max-width: 1100px) { .objrow { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+.objcard {
+  display: flex; flex-direction: column; gap: 6px; text-align: left;
+  padding: 12px; min-height: 168px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--panel); cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+.objcard:not(:disabled):hover {
+  transform: translateY(-3px); border-color: var(--gold);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .55);
+}
+.objcard:disabled { cursor: default; opacity: .78; }
+/* Taken by the active player just now: ringed, so the click that undoes it is obvious. */
+.objcard.is-mine { border-color: var(--gold); box-shadow: inset 0 0 0 1px rgba(216, 184, 106, .4); }
+
+.objcard__name { font-size: 15px; font-weight: 700; line-height: 1.2; }
+.objcard__desc { font-size: 12.5px; line-height: 1.35; color: var(--ink-dim); }
+/* Pushed to the foot of the box so every card's icons line up. */
+.objcard__scorers {
+  display: flex; flex-wrap: wrap; gap: 4px; margin-top: auto; padding-top: 8px;
+  min-height: 30px; border-top: 1px solid var(--line);
+}
+.objcard__scorer {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 1px solid var(--pc); background: color-mix(in srgb, var(--pc) 28%, var(--panel2));
+}
+
+.objcard--back { align-items: center; justify-content: center; gap: 8px; padding: 10px; }
+.objback { width: 100%; max-width: 104px; height: auto; display: block; }
+.objcard__reveal {
+  font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim);
+}
+.objcard--back:hover .objcard__reveal { color: var(--gold); }

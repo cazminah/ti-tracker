@@ -1,4 +1,5 @@
 import { STRATEGY_CARDS, cardById } from './data/strategyCards'
+import { STAGE_I, STATUS_SECRETS } from './data/objectives'
 import { elapsedSince } from './time'
 
 export const SEATS = [1, 2, 3, 4, 5, 6]
@@ -31,7 +32,18 @@ export const initialState = () => ({
   resumeScreen: null, // where to drop back to if the end screen is dismissed
   initiativeSeats: [...SEATS], // header order; only recomputed when cards are drafted
   toast: null,
+
+  // --- objectives -------------------------------------------------------
+  revealedObjectives: [],  // stage I objective ids, in the order they were revealed
+  objectiveScorers: {},    // objectiveId -> seats that have scored it, any round
+  secretScores: {},        // seat -> secret objective ids they have scored, any round
+  statusSeatIndex: 0,      // position in the initiative order while scoring
+  statusPublicScored: {},  // seat -> the public objective they took this phase
+  statusSecretScored: {},  // seat -> the secret they took this phase
 })
+
+/** Stage I objectives on the board at once: 2 at setup, then 1 a round. */
+export const PUBLIC_SLOTS = 5
 
 // ---------------------------------------------------------------- selectors
 
@@ -74,6 +86,33 @@ export function activeSeat(state) {
 
 export const setupComplete = (state) =>
   state.seats.every((s) => s.color && s.factionId)
+
+/**
+ * The seat scoring right now in the status phase, or null once every player
+ * has been through. Scoring runs in initiative order, i.e. the same order the
+ * action phase used, which is fixed for the round at the end of the draft.
+ */
+export function scoringSeat(state) {
+  const order = state.initiativeSeats
+  return state.statusSeatIndex < order.length ? order[state.statusSeatIndex] : null
+}
+
+/** Stage I objectives still face down, i.e. the ones a reveal can pick from. */
+export const unrevealedStageI = (state) =>
+  STAGE_I.filter((o) => !state.revealedObjectives.includes(o.id))
+
+/**
+ * Secrets that can still be scored in a status phase: status-phase types only
+ * (no action / agenda secrets), and not already taken by somebody. A secret
+ * exists once in the deck, so one scored is one gone for everyone.
+ */
+export function availableSecrets(state) {
+  const taken = new Set(Object.values(state.secretScores || {}).flat())
+  return STATUS_SECRETS.filter((o) => !taken.has(o.id))
+}
+
+/** Seats that have scored `objectiveId`, in seat order. */
+export const scorersOf = (state, objectiveId) => state.objectiveScorers[objectiveId] || []
 
 /**
  * Seconds a seat has spent on its turns, including the clock still running if
@@ -119,6 +158,34 @@ function bankTime(state, seat) {
   return { ...state, timers, turnStartedAt: null }
 }
 
+/**
+ * The status phase always starts over at the top of the initiative order with
+ * a clean ledger of who has scored what *this* phase. The permanent records
+ * (objectiveScorers, secretScores) carry on across rounds.
+ */
+const enterStatus = (state) => ({
+  ...state,
+  screen: 'status',
+  statusSeatIndex: 0,
+  statusPublicScored: {},
+  statusSecretScored: {},
+})
+
+/**
+ * Move a seat's victory points by `delta` and, if that takes them onto the
+ * target, raise the end-of-game prompt. The prompt carries the whole of
+ * `before` so cancelling undoes the move completely — for an objective that
+ * means the point *and* the faction icon that came with it, not just the point.
+ */
+function withVP(before, after, seat, delta) {
+  const prev = before.scores[seat] || 0
+  const next = Math.max(0, prev + delta)
+  const scored = { ...after, scores: { ...after.scores, [seat]: next } }
+  const reached = delta > 0 && prev < before.vpTarget && next >= before.vpTarget
+  if (!reached) return scored
+  return { ...scored, endPrompt: { seat, undo: { ...before, endPrompt: null } } }
+}
+
 function advanceTurn(state, actingSeat) {
   const banked = bankTime(state, actingSeat)
   const order = initiativeOrder(state.picks)
@@ -130,7 +197,7 @@ function advanceTurn(state, actingSeat) {
     }
   }
   // Nobody left to act — the round's action phase is over.
-  return { ...banked, pendingAction: null, screen: 'status' }
+  return enterStatus({ ...banked, pendingAction: null })
 }
 
 export function reducer(state, action) {
@@ -233,26 +300,14 @@ export function reducer(state, action) {
       )
     }
 
-    case 'ADJUST_SCORE': {
-      const prev = state.scores[action.seat] || 0
-      const next = Math.max(0, prev + action.delta)
-      const scores = { ...state.scores, [action.seat]: next }
-      // Only a step up *onto* the target opens the prompt, so nudging a
-      // finished player from 11 to 12 doesn't ask again.
-      const reached = action.delta > 0 && prev < state.vpTarget && next >= state.vpTarget
-      return {
-        ...state,
-        scores,
-        endPrompt: reached ? { seat: action.seat, prev } : state.endPrompt,
-      }
-    }
+    // Only a step up *onto* the target opens the prompt, so nudging a
+    // finished player from 11 to 12 doesn't ask again.
+    case 'ADJUST_SCORE':
+      return withVP(state, state, action.seat, action.delta)
 
-    case 'CANCEL_END': {
-      // Roll the increment that opened the prompt back off.
-      if (!state.endPrompt) return state
-      const { seat, prev } = state.endPrompt
-      return { ...state, scores: { ...state.scores, [seat]: prev }, endPrompt: null }
-    }
+    case 'CANCEL_END':
+      // Roll back everything the move that opened the prompt did.
+      return state.endPrompt?.undo ? state.endPrompt.undo : { ...state, endPrompt: null }
 
     case 'CONFIRM_END': {
       const banked = bankTime(state, activeSeat(state))
@@ -276,6 +331,86 @@ export function reducer(state, action) {
       }
     }
 
+    // ------------------------------------------------------------ objectives
+
+    case 'REVEAL_OBJECTIVE': {
+      // Used by both the setup screen and the status phase's face-down slots.
+      if (!action.objectiveId) return state
+      if (state.revealedObjectives.includes(action.objectiveId)) return state
+      if (state.revealedObjectives.length >= PUBLIC_SLOTS) return state
+      return {
+        ...state,
+        revealedObjectives: [...state.revealedObjectives, action.objectiveId],
+      }
+    }
+
+    /**
+     * The active player takes, or gives back, a revealed public objective.
+     * One public per player per status phase; clicking the one they just took
+     * puts it back, but an objective scored in an earlier round is settled and
+     * does nothing.
+     */
+    case 'SCORE_PUBLIC': {
+      const seat = scoringSeat(state)
+      const id = action.objectiveId
+      if (seat == null || !state.revealedObjectives.includes(id)) return state
+
+      const scorers = scorersOf(state, id)
+      if (scorers.includes(seat)) {
+        if (state.statusPublicScored[seat] !== id) return state
+        const statusPublicScored = { ...state.statusPublicScored }
+        delete statusPublicScored[seat]
+        return withVP(state, {
+          ...state,
+          objectiveScorers: { ...state.objectiveScorers, [id]: scorers.filter((x) => x !== seat) },
+          statusPublicScored,
+        }, seat, -1)
+      }
+
+      if (state.statusPublicScored[seat]) return state
+      return withVP(state, {
+        ...state,
+        objectiveScorers: { ...state.objectiveScorers, [id]: [...scorers, seat] },
+        statusPublicScored: { ...state.statusPublicScored, [seat]: id },
+      }, seat, 1)
+    }
+
+    /** One secret per player per status phase, likewise reversible. */
+    case 'SCORE_SECRET': {
+      const seat = scoringSeat(state)
+      const id = action.objectiveId
+      if (seat == null || !id || state.statusSecretScored[seat]) return state
+      if (!availableSecrets(state).some((o) => o.id === id)) return state
+      return withVP(state, {
+        ...state,
+        secretScores: { ...state.secretScores, [seat]: [...(state.secretScores[seat] || []), id] },
+        statusSecretScored: { ...state.statusSecretScored, [seat]: id },
+      }, seat, 1)
+    }
+
+    case 'UNSCORE_SECRET': {
+      const seat = scoringSeat(state)
+      const id = seat != null ? state.statusSecretScored[seat] : null
+      if (!id) return state
+      const statusSecretScored = { ...state.statusSecretScored }
+      delete statusSecretScored[seat]
+      return withVP(state, {
+        ...state,
+        secretScores: {
+          ...state.secretScores,
+          [seat]: (state.secretScores[seat] || []).filter((x) => x !== id),
+        },
+        statusSecretScored,
+      }, seat, -1)
+    }
+
+    case 'STATUS_SEAT': {
+      // Scoring is a walk down the initiative order; one past the end means done.
+      const next = state.statusSeatIndex + action.delta
+      const max = state.initiativeSeats.length
+      return { ...state, statusSeatIndex: Math.min(max, Math.max(0, next)) }
+    }
+
     case 'SET_VOTES':
       return { ...state, votes: { ...state.votes, [action.seat]: action.value } }
 
@@ -283,6 +418,7 @@ export function reducer(state, action) {
       // Leaving the action phase by any other door stops the clock.
       const leaving = state.screen === 'action' && action.screen !== 'action'
       const base = leaving ? bankTime(state, activeSeat(state)) : state
+      if (action.screen === 'status' && state.screen !== 'status') return enterStatus(base)
       return { ...base, screen: action.screen }
     }
 

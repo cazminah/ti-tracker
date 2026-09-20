@@ -16,10 +16,10 @@ The app walks one round at a time through:
 
 | Screen | What it does |
 | --- | --- |
-| **Game Setup** | Colour + faction per seat, 1–6 clockwise. Colours and factions can't be double-picked. |
+| **Game Setup** | Colour + faction per seat, 1–6 clockwise. Colours and factions can't be double-picked, and the two opening stage I objectives are revealed here. |
 | **Strategy Phase** | Draft in clockwise order from the speaker, two rows of four. A card goes out of the pool once taken. |
 | **Action Phase** | Initiative tiles in order; turns follow it. Strategy / tactical / pass, each behind a confirm. |
-| **Status Phase** | The eight status-phase steps. |
+| **Status Phase** | The eight status-phase steps, then objective scoring in initiative order. |
 | **Agenda Phase** | The agenda steps plus a vote box per player, ordered from the speaker's left. |
 | **End of Game** | Final standings, time per player, and the full draft history. |
 
@@ -47,7 +47,47 @@ are next drafted, so it stays stable through a round.
   you type. The moment a player's score steps *onto* it, a full-screen
   **Confirm end of game?** goes up. Cancel takes that last point back off
   (it is usually a misclick on the header's +); confirm shows the end screen.
-  Nudging an already-finished player from 11 to 12 doesn't ask again.
+  Nudging an already-finished player from 11 to 12 doesn't ask again. When the
+  point came from an objective, cancelling rolls the objective back too — the
+  faction icon comes off the card, not just the point off the score.
+
+## Objectives
+
+The public and secret objective decks are imported from the **objectives** tab
+of the Twilight Imperium Reference sheet — `set`, `stage`, `type`, `name` and
+`description` — into `src/data/objectives.js`. That file is kept in the
+sheet's own row order, because every drop-down and every row of boxes reads it
+top to bottom. The sheet groups by `type` and sorts by `name` inside each
+group, but deliberately puts `spend` last rather than alphabetically, and one
+secret has no type at all, so re-sorting in code would quietly change the
+order. Options always read `Name - description`.
+
+Two stage I objectives are revealed at setup. After that the status phase
+carries the rest:
+
+- **Scoring order.** The six players sit in a row in initiative order — the
+  order set by the strategy cards drafted that round. The active player is
+  lifted out of the row and named in a banner below it; **Next player →**
+  walks down the row, **← Back** goes the other way for a misclick.
+- **Public objectives.** A row of five stage I boxes. Clicking a revealed one
+  scores it for the active player: their faction icon lands in the box and
+  their score goes up 1. Clicking it again takes it back off. One public per
+  player per status phase — the other boxes disable once they've taken one —
+  and an objective they scored in an earlier round is settled, so it can't be
+  taken twice or undone later.
+- **Revealing.** The unrevealed slots show a drawn stage I card back. Clicking
+  one opens step (2)'s **Reveal Public Objective** picker; the objectives
+  already face up are absent from the list.
+- **Secret objectives.** The active player's banner carries a drop-down of
+  every secret that can be scored in a status phase — action- and agenda-type
+  secrets are excluded, and a secret someone else has already scored is gone
+  from the list for everyone. Confirm adds it to that player's box in the row
+  of six as a single line of its name; hovering it pops the full
+  `Name - description` up at the cursor. One secret per player per phase, with
+  an **Undo** beside it.
+
+Stage II objectives, and the action- and agenda-phase secrets, are in the data
+file but not yet wired to a screen.
 
 ## The turn clock
 

@@ -1,12 +1,19 @@
 import { PLAYER_COLORS } from '../data/colors'
 import { FACTIONS, EXPANSION_LABELS } from '../data/factions'
+import { objectiveById } from '../data/objectives'
 import { FactionCrest } from '../components/FactionCrest'
-import { SEATS, setupComplete } from '../state'
+import { ObjectivePicker } from '../components/ObjectivePicker'
+import { SEATS, setupComplete, unrevealedStageI } from '../state'
+
+// The two stage I objectives that are face up before the first round starts.
+const OPENING_OBJECTIVES = 2
 
 export function SetupScreen({ state, dispatch }) {
   const takenColors = new Set(state.seats.map((s) => s.color).filter(Boolean))
   const takenFactions = new Set(state.seats.map((s) => s.factionId).filter(Boolean))
-  const ready = setupComplete(state)
+  const opening = state.revealedObjectives.map(objectiveById).filter(Boolean)
+  const seatsReady = setupComplete(state)
+  const ready = seatsReady && opening.length >= OPENING_OBJECTIVES
   const custom = state.vpTarget !== 10 && state.vpTarget !== 14
 
   const set = (seat, patch) => dispatch({ type: 'SET_SEAT', seat, patch })
@@ -112,6 +119,39 @@ export function SetupScreen({ state, dispatch }) {
         })}
       </div>
 
+      <h2 className="screen__h2">Opening Stage I Objectives</h2>
+      <p className="screen__sub">
+        The speaker reveals two stage I objectives before the first strategy phase.
+      </p>
+
+      <ol className="openobj">
+        {Array.from({ length: OPENING_OBJECTIVES }).map((_, i) => {
+          const o = opening[i]
+          return (
+            <li key={i} className={`openobj__slot ${o ? 'is-set' : ''}`}>
+              <span className="openobj__n">{i + 1}</span>
+              {o ? (
+                <span className="openobj__text">
+                  <strong className="openobj__name">{o.name}</strong>
+                  <span className="openobj__desc">{o.description}</span>
+                </span>
+              ) : (
+                <span className="openobj__text openobj__text--empty">Not revealed yet</span>
+              )}
+            </li>
+          )
+        })}
+      </ol>
+
+      {opening.length < OPENING_OBJECTIVES && (
+        <ObjectivePicker
+          options={unrevealedStageI(state)}
+          placeholder="Choose a stage I objective…"
+          confirmLabel="Add"
+          onConfirm={(objectiveId) => dispatch({ type: 'REVEAL_OBJECTIVE', objectiveId })}
+        />
+      )}
+
       <div className="screen__actions">
         <button type="button" className="btn btn--ghost" onClick={() => dispatch({ type: 'RESET' })}>
           Clear
@@ -125,7 +165,10 @@ export function SetupScreen({ state, dispatch }) {
           Strategy Phase (Round 1) →
         </button>
       </div>
-      {!ready && <p className="hint">Every seat needs a colour and a faction.</p>}
+      {!seatsReady && <p className="hint">Every seat needs a colour and a faction.</p>}
+      {seatsReady && !ready && (
+        <p className="hint">Reveal both opening stage I objectives to start.</p>
+      )}
     </section>
   )
 }
