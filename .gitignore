@@ -1,0 +1,29 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+.vite/
+
+# environment
+.env
+.env*.local
+
+# logs
+*.log
+npm-debug.log*
+
+# macOS
+.DS_Store
+
+# editors
+.vscode/
+.idea/
+
+# Claude Code
+.claude/settings.local.json
+
+# fonts
+# The card-name font is a commercial licence. Uncomment before publishing
+# this repo anywhere public; the app falls back to Titillium Web without it.
+# public/fonts/*.otf
