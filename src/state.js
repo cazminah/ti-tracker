@@ -1,5 +1,7 @@
 import { STRATEGY_CARDS, cardById } from './data/strategyCards'
-import { STAGE_I, STATUS_SECRETS } from './data/objectives'
+import { STATUS_SECRETS, pointsFor, objectiveById, stageDeck } from './data/objectives'
+import { PLAYER_COLORS } from './data/colors'
+import { FACTIONS } from './data/factions'
 import { elapsedSince } from './time'
 
 export const SEATS = [1, 2, 3, 4, 5, 6]
@@ -26,6 +28,9 @@ export const initialState = () => ({
   scores: zeroed(),
   votes: zeroed(),
   vpTarget: 10,       // victory points that trigger the end-of-game prompt
+  vpCustom: false,    // whether the target is being typed rather than picked
+  useCodex3: false,   // include the Codex III objectives in the decks
+  dev: false,         // the developer bar at the foot of the screen
   timers: zeroed(),   // seat -> seconds banked across every action phase so far
   turnStartedAt: null,// Date.now() when the active player's clock started, else null
   endPrompt: null,    // { seat, prev } while "confirm end of game?" is up
@@ -34,15 +39,16 @@ export const initialState = () => ({
   toast: null,
 
   // --- objectives -------------------------------------------------------
-  revealedObjectives: [],  // stage I objective ids, in the order they were revealed
+  revealedObjectives: [],  // public objective ids, in the order they were revealed
   objectiveScorers: {},    // objectiveId -> seats that have scored it, any round
   secretScores: {},        // seat -> secret objective ids they have scored, any round
   statusSeatIndex: 0,      // position in the initiative order while scoring
   statusPublicScored: {},  // seat -> the public objective they took this phase
   statusSecretScored: {},  // seat -> the secret they took this phase
+  revealRound: 0,          // the round whose status phase last revealed one
 })
 
-/** Stage I objectives on the board at once: 2 at setup, then 1 a round. */
+/** Slots in each row: 2 stage I at setup, then one card a round after that. */
 export const PUBLIC_SLOTS = 5
 
 // ---------------------------------------------------------------- selectors
@@ -97,9 +103,30 @@ export function scoringSeat(state) {
   return state.statusSeatIndex < order.length ? order[state.statusSeatIndex] : null
 }
 
-/** Stage I objectives still face down, i.e. the ones a reveal can pick from. */
-export const unrevealedStageI = (state) =>
-  STAGE_I.filter((o) => !state.revealedObjectives.includes(o.id))
+/**
+ * Codex III replaced three secret objectives rather than adding to the deck,
+ * and the reference sheet lists the replacements in place of the originals.
+ * With the codex switched off at setup those three are simply out of play.
+ */
+const inPlay = (state) => (o) => state.useCodex3 || o.set !== 'C.III'
+
+/** Public objectives of one stage that are face up, in the order revealed. */
+export const revealedOfStage = (state, stage) =>
+  state.revealedObjectives.map(objectiveById).filter((o) => o && o.stage === stage)
+
+/** Public objectives of one stage still face down, i.e. what a reveal can pick. */
+export const unrevealedOfStage = (state, stage) =>
+  stageDeck(stage).filter((o) => !state.revealedObjectives.includes(o.id) && inPlay(state)(o))
+
+/**
+ * Which deck the next reveal comes off. Stage I fills its five slots first —
+ * two at setup and one a round — so the first stage II lands in round 4.
+ */
+export const nextRevealStage = (state) =>
+  revealedOfStage(state, 'I').length < PUBLIC_SLOTS ? 'I' : 'II'
+
+/** True once this round's status phase has already turned a card over. */
+export const revealedThisRound = (state) => state.revealRound === state.round
 
 /**
  * Secrets that can still be scored in a status phase: status-phase types only
@@ -108,7 +135,7 @@ export const unrevealedStageI = (state) =>
  */
 export function availableSecrets(state) {
   const taken = new Set(Object.values(state.secretScores || {}).flat())
-  return STATUS_SECRETS.filter((o) => !taken.has(o.id))
+  return STATUS_SECRETS.filter((o) => !taken.has(o.id)).filter(inPlay(state))
 }
 
 /** Seats that have scored `objectiveId`, in seat order. */
@@ -200,6 +227,44 @@ function advanceTurn(state, actingSeat) {
   return enterStatus({ ...banked, pendingAction: null })
 }
 
+// ------------------------------------------------------------- dev helpers
+//
+// Only the developer bar reaches these. They fill in whatever a screen needs
+// to render so a phase can be jumped to straight from a cold start, which
+// beats playing three rounds by hand to look at the status phase again.
+
+function devFillSeats(state) {
+  if (setupComplete(state)) return state
+  const usedColors = new Set(state.seats.map((s) => s.color).filter(Boolean))
+  const usedFactions = new Set(state.seats.map((s) => s.factionId).filter(Boolean))
+  const seats = state.seats.map((s) => {
+    if (s.color && s.factionId) return s
+    const color = s.color ?? PLAYER_COLORS.find((c) => !usedColors.has(c.id))?.id
+    const factionId = s.factionId ?? FACTIONS.find((f) => !usedFactions.has(f.id))?.id
+    usedColors.add(color)
+    usedFactions.add(factionId)
+    return { ...s, color, factionId }
+  })
+  return { ...state, seats }
+}
+
+function devOpeningObjectives(state) {
+  let next = state
+  while (revealedOfStage(next, 'I').length < 2) {
+    const card = unrevealedOfStage(next, 'I')[0]
+    if (!card) break
+    next = { ...next, revealedObjectives: [...next.revealedObjectives, card.id] }
+  }
+  return next
+}
+
+function devDraft(state) {
+  if (Object.keys(state.picks).length >= SEATS.length) return state
+  const order = seatOrderFrom(state.speakerSeat)
+  const picks = Object.fromEntries(order.map((seat, i) => [STRATEGY_CARDS[i].id, seat]))
+  return { ...state, picks }
+}
+
 export function reducer(state, action) {
   switch (action.type) {
     case 'SET_SEAT': {
@@ -210,7 +275,14 @@ export function reducer(state, action) {
     }
 
     case 'SET_VP_TARGET':
-      return { ...state, vpTarget: Math.max(1, action.value) }
+      return {
+        ...state,
+        vpTarget: Math.max(1, action.value),
+        vpCustom: !!action.custom,
+      }
+
+    case 'TOGGLE_CODEX3':
+      return { ...state, useCodex3: !state.useCodex3 }
 
     case 'START_STRATEGY':
       return { ...state, screen: 'strategy' }
@@ -333,14 +405,19 @@ export function reducer(state, action) {
 
     // ------------------------------------------------------------ objectives
 
+    /**
+     * Turning a public objective face up: twice on the setup screen, then once
+     * per round at the end of the status phase. A status-phase reveal stamps
+     * the round so the button can't be pressed twice in one round.
+     */
     case 'REVEAL_OBJECTIVE': {
-      // Used by both the setup screen and the status phase's face-down slots.
-      if (!action.objectiveId) return state
-      if (state.revealedObjectives.includes(action.objectiveId)) return state
-      if (state.revealedObjectives.length >= PUBLIC_SLOTS) return state
+      const objective = objectiveById(action.objectiveId)
+      if (!objective || state.revealedObjectives.includes(objective.id)) return state
+      if (revealedOfStage(state, objective.stage).length >= PUBLIC_SLOTS) return state
       return {
         ...state,
-        revealedObjectives: [...state.revealedObjectives, action.objectiveId],
+        revealedObjectives: [...state.revealedObjectives, objective.id],
+        revealRound: state.screen === 'status' ? state.round : state.revealRound,
       }
     }
 
@@ -355,6 +432,7 @@ export function reducer(state, action) {
       const id = action.objectiveId
       if (seat == null || !state.revealedObjectives.includes(id)) return state
 
+      const worth = pointsFor(objectiveById(id))
       const scorers = scorersOf(state, id)
       if (scorers.includes(seat)) {
         if (state.statusPublicScored[seat] !== id) return state
@@ -364,7 +442,7 @@ export function reducer(state, action) {
           ...state,
           objectiveScorers: { ...state.objectiveScorers, [id]: scorers.filter((x) => x !== seat) },
           statusPublicScored,
-        }, seat, -1)
+        }, seat, -worth)
       }
 
       if (state.statusPublicScored[seat]) return state
@@ -372,7 +450,7 @@ export function reducer(state, action) {
         ...state,
         objectiveScorers: { ...state.objectiveScorers, [id]: [...scorers, seat] },
         statusPublicScored: { ...state.statusPublicScored, [seat]: id },
-      }, seat, 1)
+      }, seat, worth)
     }
 
     /** One secret per player per status phase, likewise reversible. */
@@ -436,6 +514,29 @@ export function reducer(state, action) {
         votes: zeroed(),
         toast: `NEW ROUND: ${state.round + 1}`,
       }
+
+    // ------------------------------------------------------------- dev tools
+
+    case 'DEV_TOGGLE':
+      return { ...state, dev: !state.dev }
+
+    case 'DEV_GOTO': {
+      const target = action.screen
+      let next = devOpeningObjectives(devFillSeats(state))
+      if (target !== 'setup' && target !== 'strategy') {
+        next = devDraft(next)
+        next = {
+          ...next,
+          draftLog: { ...next.draftLog, [next.round]: { ...next.picks } },
+          initiativeSeats: initiativeOrder(next.picks),
+        }
+      }
+      if (target === 'action') {
+        return { ...next, screen: 'action', turnIndex: 0, pendingAction: null, turnStartedAt: Date.now() }
+      }
+      if (target === 'status') return enterStatus({ ...next, turnStartedAt: null })
+      return { ...next, screen: target, turnStartedAt: null }
+    }
 
     case 'CLEAR_TOAST':
       return { ...state, toast: null }

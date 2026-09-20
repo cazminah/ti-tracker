@@ -16,7 +16,7 @@ The app walks one round at a time through:
 
 | Screen | What it does |
 | --- | --- |
-| **Game Setup** | Colour + faction per seat, 1–6 clockwise. Colours and factions can't be double-picked, and the two opening stage I objectives are revealed here. |
+| **Game Setup** | Colour + faction per seat, 1–6 clockwise. Colours and factions can't be double-picked. Victory point target, Codex III on or off, and the two opening stage I objectives are all set here. |
 | **Strategy Phase** | Draft in clockwise order from the speaker, two rows of four. A card goes out of the pool once taken. |
 | **Action Phase** | Initiative tiles in order; turns follow it. Strategy / tactical / pass, each behind a confirm. |
 | **Status Phase** | The eight status-phase steps, then objective scoring in initiative order. |
@@ -24,8 +24,9 @@ The app walks one round at a time through:
 | **End of Game** | Final standings, time per player, and the full draft history. |
 
 The header is persistent: players in **initiative order**, with victory points.
-Hover a player to reveal − and + . The order only changes when strategy cards
-are next drafted, so it stays stable through a round.
+The order only changes when strategy cards are next drafted, so it stays stable
+through a round. Points are earned by scoring objectives, not typed in — the
+only manual steppers live in the developer bar.
 
 ## Rules the app actually enforces
 
@@ -69,15 +70,19 @@ carries the rest:
   order set by the strategy cards drafted that round. The active player is
   lifted out of the row and named in a banner below it; **Next player →**
   walks down the row, **← Back** goes the other way for a misclick.
-- **Public objectives.** A row of five stage I boxes. Clicking a revealed one
-  scores it for the active player: their faction icon lands in the box and
-  their score goes up 1. Clicking it again takes it back off. One public per
-  player per status phase — the other boxes disable once they've taken one —
-  and an objective they scored in an earlier round is settled, so it can't be
-  taken twice or undone later.
-- **Revealing.** The unrevealed slots show a drawn stage I card back. Clicking
-  one opens step (2)'s **Reveal Public Objective** picker; the objectives
-  already face up are absent from the list.
+- **Public objectives.** Two rows of five boxes, stage I above stage II.
+  Clicking a revealed one scores it for the active player: their faction icon
+  lands in the box and their score goes up by what the card is worth — 1 for a
+  stage I, 2 for a stage II. Clicking it again takes it back off. One public
+  per player per status phase — the other boxes disable once they've taken one
+  — and an objective they scored in an earlier round is settled, so it can't
+  be taken twice or undone later.
+- **Revealing.** One card a round, and only once every player has been through:
+  the **All players have scored** banner grows a **Reveal next objective**
+  button that opens the step (2) picker. Slots still face down draw their
+  stage's card back and are inert. Stage I fills its five slots first — two at
+  setup, then one each in rounds 1 to 3 — so the first stage II is revealed at
+  the end of round 4, and the button switches decks on its own.
 - **Secret objectives.** The active player's banner carries a drop-down of
   every secret that can be scored in a status phase — action- and agenda-type
   secrets are excluded, and a secret someone else has already scored is gone
@@ -85,9 +90,24 @@ carries the rest:
   of six as a single line of its name; hovering it pops the full
   `Name - description` up at the cursor. One secret per player per phase, with
   an **Undo** beside it.
+- **Codex III.** Off by default, toggled at setup. The codex *replaced* three
+  secret objectives rather than adding to the deck, and the reference sheet
+  lists the replacements in place of the originals, so switching it off takes
+  those three out of play rather than swapping them back. All three are
+  action-type secrets, so today the switch only shows up once the action phase
+  can score a secret.
 
-Stage II objectives, and the action- and agenda-phase secrets, are in the data
-file but not yet wired to a screen.
+The action- and agenda-phase secrets are in the data file but not yet wired to
+a screen.
+
+## The developer bar
+
+**Dev** in the header opens a strip along the foot of the screen: jump straight
+to any phase, bump the round, reset, and nudge any player's score. Jumping
+fills in whatever the target screen needs to render — seats, the two opening
+objectives, a draft — so the status phase is one click from a cold start
+rather than three rounds of clicking. It is off by default and the setting
+persists, so it stays out of the way of an actual game.
 
 ## The turn clock
 

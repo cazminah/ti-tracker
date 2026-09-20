@@ -8,6 +8,7 @@ import { StatusPhase } from './screens/StatusPhase'
 import { AgendaPhase } from './screens/AgendaPhase'
 import { GameOverScreen } from './screens/GameOverScreen'
 import { EndGamePrompt } from './components/EndGamePrompt'
+import { DevBar } from './components/DevBar'
 
 const SCREENS = {
   setup: SetupScreen,
@@ -39,6 +40,7 @@ export default function App() {
       <main className="app__main">
         <Screen state={state} dispatch={dispatch} />
       </main>
+      {state.dev && <DevBar state={state} dispatch={dispatch} />}
       {state.endPrompt && <EndGamePrompt state={state} dispatch={dispatch} />}
       {state.toast && (
         <div className="toast" role="status" onClick={() => dispatch({ type: 'CLEAR_TOAST' })}>

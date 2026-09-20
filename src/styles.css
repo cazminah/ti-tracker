@@ -75,12 +75,14 @@ button { font: inherit; color: inherit; }
 }
 .scorebar__round { font-size: 12px; color: var(--ink-dim); }
 
+.scorebar__tools { display: flex; gap: 6px; margin-top: 3px; }
 .scorebar__reset {
-  align-self: flex-start; margin-top: 3px; padding: 2px 7px; cursor: pointer;
+  padding: 2px 7px; cursor: pointer;
   border: 1px solid var(--line); border-radius: 6px; background: transparent;
   font-size: 11px; color: var(--ink-dim);
 }
 .scorebar__reset:hover { color: var(--ink); border-color: #55405a; }
+.scorebar__reset.is-on { color: #8fe0c0; border-color: #35a184; }
 
 .scorebar__players { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
 
@@ -90,7 +92,7 @@ button { font: inherit; color: inherit; }
   align-items: center;
   gap: 8px;
   padding: 6px 10px 6px 8px;
-  min-width: 132px;
+  min-width: 118px;
   border: 1px solid var(--line);
   border-left: 4px solid var(--pc);
   border-radius: var(--radius);
@@ -106,18 +108,7 @@ button { font: inherit; color: inherit; }
   overflow: hidden; text-overflow: ellipsis; max-width: 96px;
 }
 
-.ptile__score { display: flex; align-items: center; gap: 2px; margin-left: auto; }
-.ptile__vp { font-size: 20px; font-weight: 700; min-width: 22px; text-align: center; }
-
-.ptile__step {
-  width: 22px; height: 22px; padding: 0;
-  border: 1px solid var(--line); border-radius: 6px;
-  background: var(--panel2); cursor: pointer;
-  opacity: 0; transition: opacity 120ms ease, background 120ms ease;
-}
-.ptile:hover .ptile__step,
-.ptile:focus-within .ptile__step { opacity: 1; }
-.ptile__step:hover { background: var(--accent); }
+.ptile__vp { margin-left: auto; font-size: 20px; font-weight: 700; line-height: 1; }
 
 /* ------------------------------------------------------------------ layout */
 
@@ -618,13 +609,20 @@ button.vptarget__btn:hover { color: var(--ink); border-color: #55405a; }
   color: var(--ink); border-color: var(--gold);
   box-shadow: inset 0 0 0 1px var(--gold);
 }
-.vptarget__custom { display: flex; align-items: center; gap: 8px; cursor: text; }
 .vptarget__input {
   width: 68px; padding: 6px 8px; text-align: center;
   font-size: 15px; font-weight: 700;
   border: 1px solid var(--line); border-radius: 8px;
   background: var(--panel2); color: var(--ink);
+  transition: opacity 120ms ease, border-color 120ms ease;
 }
+.vptarget__input:disabled { opacity: .35; cursor: not-allowed; }
+.vptarget__input:not(:disabled) { border-color: var(--gold); }
+.vptarget__readout {
+  margin-left: 6px; flex: 1 1 240px; min-width: 200px;
+  font-size: 12.5px; line-height: 1.4; color: var(--ink-dim);
+}
+.vptarget__readout strong { color: var(--gold); }
 
 /* -------------------------------------------------------- end-game prompt */
 
@@ -830,9 +828,15 @@ button.vptarget__btn:hover { color: var(--ink); border-color: #55405a; }
 .objcard__name { font-size: 15px; font-weight: 700; line-height: 1.2; }
 .objcard__desc { font-size: 12.5px; line-height: 1.35; color: var(--ink-dim); }
 /* Pushed to the foot of the box so every card's icons line up. */
-.objcard__scorers {
-  display: flex; flex-wrap: wrap; gap: 4px; margin-top: auto; padding-top: 8px;
+.objcard__foot {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: auto; padding-top: 8px;
   min-height: 30px; border-top: 1px solid var(--line);
+}
+.objcard__scorers { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; min-width: 0; }
+.objcard__worth {
+  flex: none; font-size: 11px; font-weight: 700; letter-spacing: .08em;
+  color: var(--ink-dim);
 }
 .objcard__scorer {
   display: flex; align-items: center; justify-content: center;
@@ -840,9 +844,60 @@ button.vptarget__btn:hover { color: var(--ink); border-color: #55405a; }
   border: 1px solid var(--pc); background: color-mix(in srgb, var(--pc) 28%, var(--panel2));
 }
 
-.objcard--back { align-items: center; justify-content: center; gap: 8px; padding: 10px; }
-.objback { width: 100%; max-width: 104px; height: auto; display: block; }
-.objcard__reveal {
-  font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim);
+/* A face-down slot is scenery: nothing to click, nothing to focus. */
+.objcard--back {
+  align-items: center; justify-content: center; gap: 8px; padding: 10px;
+  cursor: default; opacity: .9;
 }
-.objcard--back:hover .objcard__reveal { color: var(--gold); }
+.objcard--back:hover { transform: none; border-color: var(--line); box-shadow: none; }
+.objback { width: 100%; max-width: 104px; height: auto; display: block; }
+.objrow__head {
+  margin: 18px 0 8px; font-size: 12px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--ink-dim); font-weight: 600;
+}
+.objbanner__reveal { padding: 9px 18px; }
+
+/* --------------------------------------------------------------- dev bar */
+
+/* Deliberately unlovely: it should never be mistaken for part of the game. */
+.devbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 80;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 7px 12px;
+  background: #0a0c12; border-top: 1px solid #35a184;
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, .6);
+  font-size: 12px;
+}
+.devbar__tag {
+  font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
+  color: #8fe0c0;
+}
+.devbar__group { display: flex; align-items: center; gap: 4px; }
+.devbar__group--scores { margin-left: auto; gap: 8px; }
+
+.devbar__btn {
+  padding: 4px 9px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel2); color: var(--ink-dim);
+}
+.devbar__btn:hover { color: var(--ink); border-color: #35a184; }
+.devbar__btn.is-on { color: #8fe0c0; border-color: #35a184; background: #14261f; }
+
+.devscore {
+  display: flex; align-items: center; gap: 5px;
+  padding: 2px 6px; border-radius: 6px;
+  border: 1px solid var(--line); border-left: 3px solid var(--pc);
+  background: var(--panel);
+}
+.devscore__vp { font-weight: 700; min-width: 14px; text-align: center; }
+/* + above −, tight against the number: the shape the header steppers should
+   take if they ever come back. */
+.devscore__steps { display: flex; flex-direction: column; gap: 1px; }
+.devscore__steps button {
+  width: 16px; height: 12px; padding: 0; line-height: 1; font-size: 10px;
+  border: 1px solid var(--line); border-radius: 3px;
+  background: var(--panel2); color: var(--ink-dim); cursor: pointer;
+}
+.devscore__steps button:hover { color: var(--ink); border-color: #35a184; }
+
+/* The bar covers the foot of the page, so give the content somewhere to end. */
+.app:has(.devbar) .app__main { padding-bottom: 72px; }

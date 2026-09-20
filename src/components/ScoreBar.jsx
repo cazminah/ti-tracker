@@ -11,19 +11,30 @@ export function ScoreBar({ state, dispatch }) {
       <div className="scorebar__brand">
         <span className="scorebar__title">Twilight Imperium</span>
         <span className="scorebar__round">Round {state.round}</span>
-        {state.screen !== 'setup' && (
+        <div className="scorebar__tools">
+          {state.screen !== 'setup' && (
+            <button
+              type="button"
+              className="scorebar__reset"
+              onClick={() => {
+                if (confirm('Abandon this game and return to setup?')) {
+                  dispatch({ type: 'RESET' })
+                }
+              }}
+            >
+              New game
+            </button>
+          )}
           <button
             type="button"
-            className="scorebar__reset"
-            onClick={() => {
-              if (confirm('Abandon this game and return to setup?')) {
-                dispatch({ type: 'RESET' })
-              }
-            }}
+            className={`scorebar__reset ${state.dev ? 'is-on' : ''}`}
+            aria-pressed={state.dev}
+            title="Developer bar: jump between phases"
+            onClick={() => dispatch({ type: 'DEV_TOGGLE' })}
           >
-            New game
+            Dev
           </button>
-        )}
+        </div>
       </div>
 
       <div className="scorebar__players">
@@ -48,25 +59,7 @@ export function ScoreBar({ state, dispatch }) {
                 <span className="ptile__faction">{faction?.short ?? '—'}</span>
               </div>
 
-              <div className="ptile__score">
-                <button
-                  type="button"
-                  className="ptile__step"
-                  aria-label={`Decrease ${faction?.short ?? `player ${seat}`} score`}
-                  onClick={() => dispatch({ type: 'ADJUST_SCORE', seat, delta: -1 })}
-                >
-                  −
-                </button>
-                <span className="ptile__vp">{state.scores[seat] ?? 0}</span>
-                <button
-                  type="button"
-                  className="ptile__step"
-                  aria-label={`Increase ${faction?.short ?? `player ${seat}`} score`}
-                  onClick={() => dispatch({ type: 'ADJUST_SCORE', seat, delta: 1 })}
-                >
-                  +
-                </button>
-              </div>
+              <span className="ptile__vp">{state.scores[seat] ?? 0}</span>
             </div>
           )
         })}

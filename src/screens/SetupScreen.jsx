@@ -3,7 +3,7 @@ import { FACTIONS, EXPANSION_LABELS } from '../data/factions'
 import { objectiveById } from '../data/objectives'
 import { FactionCrest } from '../components/FactionCrest'
 import { ObjectivePicker } from '../components/ObjectivePicker'
-import { SEATS, setupComplete, unrevealedStageI } from '../state'
+import { SEATS, setupComplete, unrevealedOfStage } from '../state'
 
 // The two stage I objectives that are face up before the first round starts.
 const OPENING_OBJECTIVES = 2
@@ -14,7 +14,6 @@ export function SetupScreen({ state, dispatch }) {
   const opening = state.revealedObjectives.map(objectiveById).filter(Boolean)
   const seatsReady = setupComplete(state)
   const ready = seatsReady && opening.length >= OPENING_OBJECTIVES
-  const custom = state.vpTarget !== 10 && state.vpTarget !== 14
 
   const set = (seat, patch) => dispatch({ type: 'SET_SEAT', seat, patch })
 
@@ -32,36 +31,63 @@ export function SetupScreen({ state, dispatch }) {
           <button
             key={n}
             type="button"
-            className={`vptarget__btn ${state.vpTarget === n ? 'is-on' : ''}`}
-            aria-pressed={state.vpTarget === n}
-            onClick={() => dispatch({ type: 'SET_VP_TARGET', value: n })}
+            className={`vptarget__btn ${!state.vpCustom && state.vpTarget === n ? 'is-on' : ''}`}
+            aria-pressed={!state.vpCustom && state.vpTarget === n}
+            onClick={() => dispatch({ type: 'SET_VP_TARGET', value: n, custom: false })}
           >
             {n} VP
           </button>
         ))}
-        <label className="vptarget__custom">
-          <span
-            className={`vptarget__btn ${custom ? 'is-on' : ''}`}
-            aria-hidden="true"
-          >
-            Custom
-          </span>
-          <input
-            className="vptarget__input"
-            type="number"
-            min="1"
-            step="1"
-            inputMode="numeric"
-            aria-label="Custom victory point target"
-            value={state.vpTarget}
-            onChange={(e) =>
-              dispatch({
-                type: 'SET_VP_TARGET',
-                value: Math.max(1, parseInt(e.target.value, 10) || 1),
-              })
-            }
-          />
-        </label>
+        {/*
+         * Custom is a button like the other two, not a label on the input —
+         * pressing it *is* the choice, and whatever is in the box takes effect
+         * as it is typed. The read-out below says which target is live so
+         * there is nothing left to confirm.
+         */}
+        <button
+          type="button"
+          className={`vptarget__btn ${state.vpCustom ? 'is-on' : ''}`}
+          aria-pressed={state.vpCustom}
+          onClick={() => dispatch({ type: 'SET_VP_TARGET', value: state.vpTarget, custom: true })}
+        >
+          Custom
+        </button>
+        <input
+          className="vptarget__input"
+          type="number"
+          min="1"
+          step="1"
+          inputMode="numeric"
+          aria-label="Custom victory point target"
+          disabled={!state.vpCustom}
+          value={state.vpTarget}
+          onChange={(e) =>
+            dispatch({
+              type: 'SET_VP_TARGET',
+              value: Math.max(1, parseInt(e.target.value, 10) || 1),
+              custom: true,
+            })
+          }
+        />
+        <span className="vptarget__readout">
+          First to <strong>{state.vpTarget}</strong> victory points wins
+        </span>
+      </div>
+
+      <div className="vptarget">
+        <span className="vptarget__label">Codex III</span>
+        <button
+          type="button"
+          className={`vptarget__btn ${state.useCodex3 ? 'is-on' : ''}`}
+          aria-pressed={state.useCodex3}
+          onClick={() => dispatch({ type: 'TOGGLE_CODEX3' })}
+        >
+          {state.useCodex3 ? 'Included' : 'Excluded'}
+        </button>
+        <span className="vptarget__readout">
+          Codex III replaced three secret objectives rather than adding to the deck,
+          so with it out those three are simply not in play.
+        </span>
       </div>
 
       <div className="setup">
@@ -145,7 +171,7 @@ export function SetupScreen({ state, dispatch }) {
 
       {opening.length < OPENING_OBJECTIVES && (
         <ObjectivePicker
-          options={unrevealedStageI(state)}
+          options={unrevealedOfStage(state, 'I')}
           placeholder="Choose a stage I objective…"
           confirmLabel="Add"
           onConfirm={(objectiveId) => dispatch({ type: 'REVEAL_OBJECTIVE', objectiveId })}

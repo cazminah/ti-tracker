@@ -6,14 +6,17 @@ import { ObjectiveCardBack } from '../components/ObjectiveCardBack'
 import { ObjectivePicker } from '../components/ObjectivePicker'
 import { colorById } from '../data/colors'
 import { factionById } from '../data/factions'
-import { objectiveById, objectiveLabel } from '../data/objectives'
+import { objectiveById, objectiveLabel, pointsFor } from '../data/objectives'
 import {
   PUBLIC_SLOTS,
   availableSecrets,
+  nextRevealStage,
+  revealedOfStage,
+  revealedThisRound,
   scoringSeat,
   scorersOf,
   seatOf,
-  unrevealedStageI,
+  unrevealedOfStage,
 } from '../state'
 
 const STEPS = [
@@ -55,7 +58,7 @@ function PlayerBox({ state, seat, active }) {
   )
 }
 
-/** One revealed stage I objective: what it is, and who has taken it. */
+/** One revealed public objective: what it is, and who has taken it. */
 function ObjectiveBox({ state, objective, seat, onScore }) {
   const scorers = scorersOf(state, objective.id)
   const mine = seat != null && scorers.includes(seat)
@@ -84,22 +87,51 @@ function ObjectiveBox({ state, objective, seat, onScore }) {
     >
       <span className="objcard__name">{objective.name}</span>
       <span className="objcard__desc">{objective.description}</span>
-      <span className="objcard__scorers">
-        {scorers.map((s) => {
-          const p = seatOf(state, s)
-          return (
-            <span
-              key={s}
-              className="objcard__scorer"
-              style={{ '--pc': colorById(p.color)?.hex ?? '#3a3a42' }}
-              title={factionById(p.factionId)?.name ?? `Player ${s}`}
-            >
-              <FactionCrest factionId={p.factionId} size={24} />
-            </span>
-          )
-        })}
+      <span className="objcard__foot">
+        <span className="objcard__scorers">
+          {scorers.map((s) => {
+            const p = seatOf(state, s)
+            return (
+              <span
+                key={s}
+                className="objcard__scorer"
+                style={{ '--pc': colorById(p.color)?.hex ?? '#3a3a42' }}
+                title={factionById(p.factionId)?.name ?? `Player ${s}`}
+              >
+                <FactionCrest factionId={p.factionId} size={24} />
+              </span>
+            )
+          })}
+        </span>
+        <span className="objcard__worth">{pointsFor(objective)} VP</span>
       </span>
     </button>
+  )
+}
+
+/**
+ * One row of public objectives of a single stage: the cards turned over so
+ * far, then face-down backs for the slots still to come. The backs are inert —
+ * revealing happens once a round, from the banner, after everybody has scored.
+ */
+function ObjectiveRow({ state, stage, seat, onScore }) {
+  const revealed = revealedOfStage(state, stage)
+  const facedown = Math.max(0, PUBLIC_SLOTS - revealed.length)
+
+  return (
+    <>
+      <h3 className="objrow__head">Stage {stage}</h3>
+      <div className="objrow">
+        {revealed.map((o) => (
+          <ObjectiveBox key={o.id} state={state} objective={o} seat={seat} onScore={onScore} />
+        ))}
+        {Array.from({ length: facedown }).map((_, i) => (
+          <div key={`back-${i}`} className="objcard objcard--back" aria-hidden="true">
+            <ObjectiveCardBack stage={stage} />
+          </div>
+        ))}
+      </div>
+    </>
   )
 }
 
@@ -109,10 +141,14 @@ export function StatusPhase({ state, dispatch }) {
   const seat = scoringSeat(state)
   const player = seat ? seatOf(state, seat) : null
   const color = player ? colorById(player.color) : null
-  const revealed = state.revealedObjectives.map(objectiveById).filter(Boolean)
-  const facedown = Math.max(0, PUBLIC_SLOTS - revealed.length)
   const secretTaken = seat ? state.statusSecretScored[seat] : null
   const secretCard = secretTaken ? objectiveById(secretTaken) : null
+
+  const stage = nextRevealStage(state)
+  const done = revealedThisRound(state)
+  const deckEmpty = unrevealedOfStage(state, stage).length === 0
+
+  const score = (objectiveId) => dispatch({ type: 'SCORE_PUBLIC', objectiveId })
 
   return (
     <section className="screen screen--wide">
@@ -130,7 +166,8 @@ export function StatusPhase({ state, dispatch }) {
       <h2 className="screen__h2">Objectives</h2>
       <p className="screen__sub">
         Scoring runs in initiative order. Each player may score one public and one
-        secret objective.
+        secret objective; the next public objective is revealed once they have all
+        been through.
       </p>
 
       <div className="objplayers">
@@ -196,6 +233,21 @@ export function StatusPhase({ state, dispatch }) {
           <span className="objbanner__faction">All players have scored.</span>
           <button
             type="button"
+            className="btn btn--primary objbanner__reveal"
+            disabled={done || deckEmpty}
+            title={
+              done
+                ? 'One public objective a round — this round has had its reveal.'
+                : deckEmpty
+                  ? `No stage ${stage} objectives left in the deck.`
+                  : undefined
+            }
+            onClick={() => setRevealing(true)}
+          >
+            {done ? `Stage ${stage} revealed` : `Reveal next objective (Stage ${stage})`}
+          </button>
+          <button
+            type="button"
             className="btn btn--ghost objbanner__undo"
             onClick={() => dispatch({ type: 'STATUS_SEAT', delta: -1 })}
           >
@@ -204,39 +256,18 @@ export function StatusPhase({ state, dispatch }) {
         </div>
       )}
 
-      <div className="objrow">
-        {revealed.map((o) => (
-          <ObjectiveBox
-            key={o.id}
-            state={state}
-            objective={o}
-            seat={seat}
-            onScore={(objectiveId) => dispatch({ type: 'SCORE_PUBLIC', objectiveId })}
-          />
-        ))}
-        {Array.from({ length: facedown }).map((_, i) => (
-          <button
-            key={`back-${i}`}
-            type="button"
-            className="objcard objcard--back"
-            title="Reveal the next stage I objective"
-            onClick={() => setRevealing(true)}
-          >
-            <ObjectiveCardBack stage="I" />
-            <span className="objcard__reveal">Reveal</span>
-          </button>
-        ))}
-      </div>
+      <ObjectiveRow state={state} stage="I" seat={seat} onScore={score} />
+      <ObjectiveRow state={state} stage="II" seat={seat} onScore={score} />
 
       {revealing && (
         <Modal title="Reveal Public Objective" onClose={() => setRevealing(false)}>
           <p className="modal__body">
-            Step (2): the speaker reveals the next stage I objective. Pick the card
-            that came off the deck.
+            Step (2): the speaker reveals the next stage {stage} objective. Pick the
+            card that came off the deck.
           </p>
           <ObjectivePicker
-            options={unrevealedStageI(state)}
-            placeholder="Choose the revealed objective…"
+            options={unrevealedOfStage(state, stage)}
+            placeholder={`Choose the revealed stage ${stage} objective…`}
             confirmLabel="Reveal"
             autoFocus
             onConfirm={(objectiveId) => {

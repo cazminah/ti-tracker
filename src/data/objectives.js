@@ -102,6 +102,12 @@ export const STAGE_I = OBJECTIVES.filter((o) => o.stage === 'I')
 export const STAGE_II = OBJECTIVES.filter((o) => o.stage === 'II')
 export const SECRETS = OBJECTIVES.filter((o) => o.stage === 'secret')
 
+/** Public objectives by stage, for the two rows of boxes and their pickers. */
+export const stageDeck = (stage) => (stage === 'II' ? STAGE_II : STAGE_I)
+
+/** Victory points an objective is worth. Stage II cards are the double ones. */
+export const pointsFor = (objective) => (objective?.stage === 'II' ? 2 : 1)
+
 /**
  * Secrets that can be scored during the status phase. Action- and agenda-type
  * secrets are scored in those phases instead, so they never appear here.
