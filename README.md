@@ -21,6 +21,7 @@ The app walks one round at a time through:
 | **Action Phase** | Initiative tiles in order; turns follow it. Strategy / tactical / pass, each behind a confirm. |
 | **Status Phase** | The eight status-phase steps. |
 | **Agenda Phase** | The agenda steps plus a vote box per player, ordered from the speaker's left. |
+| **End of Game** | Final standings, time per player, and the full draft history. |
 
 The header is persistent: players in **initiative order**, with victory points.
 Hover a player to reveal − and + . The order only changes when strategy cards
@@ -42,6 +43,42 @@ are next drafted, so it stays stable through a round.
 - **Passing.** A player cannot pass until they have performed their strategic
   action, so the Pass button stays disabled until then. Once passed they are
   skipped for the rest of the round and their whole tile greys out.
+- **The victory point target.** Set on the setup screen — 10, 14, or a number
+  you type. The moment a player's score steps *onto* it, a full-screen
+  **Confirm end of game?** goes up. Cancel takes that last point back off
+  (it is usually a misclick on the header's +); confirm shows the end screen.
+  Nudging an already-finished player from 11 to 12 doesn't ask again.
+
+## The turn clock
+
+Each player has a clock that runs only while it is their turn in the action
+phase, and accumulates across every round of the game. It reads at the right
+of the turn banner, with a pulsing dot in their colour while it is live.
+
+It is a chess clock, not a stopwatch per turn: confirming an action stops the
+acting player's clock and starts the next player's in the same instant, so
+the six totals add up to the length of the action phase. The clock also stops
+when the last player passes, when the game ends, and when the action phase is
+left by any other route.
+
+The implementation is one timestamp in state (`turnStartedAt`) plus a banked
+seconds-per-seat map (`timers`); the interval in `ActionPhase` only exists to
+make the rendered figure move, so a throttled background tab can't drift the
+count. A clock that was running when the tab closed restarts on load rather
+than billing someone for the hours the app spent shut.
+
+## The end of game screen
+
+Confirming the prompt replaces the app with the final standings: the winning
+faction named in the headline, then a table of every player ranked on victory
+points — ties broken on initiative order — with their total time and the
+strategy card they drafted in each round. Rank, faction, points and time stay
+pinned while the round columns scroll, which starts to matter around round six.
+
+The draft history is logged at the *start* of each action phase, when that
+round's picks are final, so a game that ends mid-round still shows the round
+it ended in. **Back to game** returns to exactly where you were, clock and
+all, for when it turns out someone miscounted.
 
 ## The action phase tiles
 
@@ -141,4 +178,5 @@ Everything else is the base-game printing. Change them in
 ## Saving
 
 State is written to `localStorage` after every change, so a refresh or a closed
-laptop mid-session won't lose the game. **New game** in the header wipes it.
+laptop mid-session won't lose the game — including scores, clocks and the draft
+history. **New game** in the header wipes it.

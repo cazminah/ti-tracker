@@ -565,3 +565,154 @@ button.stratcard:not(:disabled):hover {
   from { opacity: 0; transform: translate(-50%, -14px); }
   to { opacity: 1; transform: translate(-50%, 0); }
 }
+
+/* ------------------------------------------------------------- turn timer */
+
+/*
+ * The active player's running clock. Tabular figures so the banner doesn't
+ * twitch as the seconds roll over.
+ */
+.turnbanner .turntimer {
+  margin-left: auto;
+  flex: none;
+  font-family: var(--font-card);
+  font-size: 30px; font-weight: 700; line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .02em;
+  color: var(--ink-dim);
+}
+.turnbanner .turntimer--live { color: var(--ink); }
+.turnbanner .turntimer--live::before {
+  content: ''; display: inline-block; vertical-align: middle;
+  width: 8px; height: 8px; margin-right: 10px; border-radius: 50%;
+  background: var(--pc, var(--gold));
+  animation: turntimer-pulse 2s ease-in-out infinite;
+}
+@keyframes turntimer-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .25; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .turnbanner .turntimer--live::before { animation: none; }
+}
+
+/* ------------------------------------------------------------- vp target */
+
+.vptarget {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 0 0 22px; padding: 12px 14px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--panel);
+}
+.vptarget__label {
+  font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-dim); margin-right: 4px;
+}
+.vptarget__btn {
+  padding: 7px 14px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--panel2);
+  font-size: 13px; font-weight: 600; color: var(--ink-dim); cursor: pointer;
+}
+button.vptarget__btn:hover { color: var(--ink); border-color: #55405a; }
+.vptarget__btn.is-on {
+  color: var(--ink); border-color: var(--gold);
+  box-shadow: inset 0 0 0 1px var(--gold);
+}
+.vptarget__custom { display: flex; align-items: center; gap: 8px; cursor: text; }
+.vptarget__input {
+  width: 68px; padding: 6px 8px; text-align: center;
+  font-size: 15px; font-weight: 700;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel2); color: var(--ink);
+}
+
+/* -------------------------------------------------------- end-game prompt */
+
+.endprompt__who {
+  display: flex; align-items: center; gap: 14px;
+  margin: 0 0 16px; padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line); border-left: 4px solid var(--pc);
+  background: var(--panel2);
+}
+.endprompt__faction { display: block; font-size: 17px; }
+.endprompt__vp { display: block; margin-top: 2px; font-size: 13px; color: var(--ink-dim); }
+.endprompt__actions { display: flex; justify-content: flex-end; gap: 10px; }
+
+/* ----------------------------------------------------------- end of game */
+
+.gameover { text-align: center; }
+.gameover__kicker {
+  margin: 0; font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.gameover__shout {
+  margin: 6px 0 0;
+  font-family: var(--font-card);
+  font-size: clamp(38px, 8vw, 84px); line-height: 1;
+  letter-spacing: .04em; text-transform: uppercase;
+  color: var(--gold);
+  text-shadow: 0 0 40px rgba(216, 184, 106, .35);
+}
+.gameover__welcome {
+  margin: 14px 0 36px;
+  font-size: clamp(17px, 2.4vw, 26px); color: var(--ink-dim);
+}
+.gameover__welcome strong {
+  color: var(--ink);
+  border-bottom: 3px solid var(--pc);
+  padding-bottom: 2px;
+}
+
+/* Round columns keep coming, so the table scrolls rather than squeezing. */
+.gameover__tablewrap { overflow-x: auto; text-align: left; }
+.gameover__table {
+  width: 100%; min-width: 640px;
+  border-collapse: separate; border-spacing: 0 6px;
+}
+.gameover__table th {
+  padding: 0 12px 8px; text-align: left; font-weight: 600;
+  font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-dim); white-space: nowrap;
+}
+.gameover__row td {
+  padding: 10px 12px; background: var(--panel);
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+.gameover__row td:first-child {
+  border-left: 4px solid var(--pc);
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+.gameover__row td:last-child {
+  border-right: 1px solid var(--line);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.gameover__row--win td { background: var(--panel2); box-shadow: inset 0 0 0 1px rgba(216, 184, 106, .35); }
+
+/*
+ * Rank, faction, points and time stay put while the round columns scroll past
+ * them — an eight-round game is wider than most screens. On a wide one the
+ * whole table fits and nothing scrolls at all.
+ */
+.gameover__stick { position: sticky; z-index: 2; }
+.gameover__table th.gameover__stick { background: var(--bg); }
+
+.gameover__rankcol    { left: 0;     width: 52px;  min-width: 52px; }
+.gameover__factioncol { left: 52px;  width: 170px; min-width: 170px; }
+.gameover__vpcol      { left: 222px; width: 56px;  min-width: 56px; }
+.gameover__timecol    { left: 278px; width: 88px;  min-width: 88px; }
+/* Only the last of the pinned columns casts the edge shadow. */
+.gameover__timecol { box-shadow: 8px 0 12px -10px rgba(0, 0, 0, .9); }
+
+.gameover__rankcol { color: var(--ink-dim); font-size: 13px; }
+.gameover__row--win .gameover__rankcol { color: var(--gold); font-weight: 700; }
+.gameover__faction { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+.gameover__seat { display: block; font-style: normal; font-size: 11px; color: var(--ink-dim); }
+.gameover__num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gameover__vp { font-size: 19px; font-weight: 700; }
+.gameover__roundcol { white-space: nowrap; }
+.gameover__none { color: var(--ink-dim); }
+.cardpill--mini { height: 22px; padding: 0 10px; font-size: 14px; }
+.gameover__total { text-align: center; margin-top: 18px; }
+.gameover .screen__actions { justify-content: center; }

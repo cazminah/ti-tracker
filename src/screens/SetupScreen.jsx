@@ -7,6 +7,7 @@ export function SetupScreen({ state, dispatch }) {
   const takenColors = new Set(state.seats.map((s) => s.color).filter(Boolean))
   const takenFactions = new Set(state.seats.map((s) => s.factionId).filter(Boolean))
   const ready = setupComplete(state)
+  const custom = state.vpTarget !== 10 && state.vpTarget !== 14
 
   const set = (seat, patch) => dispatch({ type: 'SET_SEAT', seat, patch })
 
@@ -17,6 +18,44 @@ export function SetupScreen({ state, dispatch }) {
         Prophecy of Kings + Codex I–IV. Pick a colour and faction for each seat, in
         clockwise order.
       </p>
+
+      <div className="vptarget">
+        <span className="vptarget__label">Play to</span>
+        {[10, 14].map((n) => (
+          <button
+            key={n}
+            type="button"
+            className={`vptarget__btn ${state.vpTarget === n ? 'is-on' : ''}`}
+            aria-pressed={state.vpTarget === n}
+            onClick={() => dispatch({ type: 'SET_VP_TARGET', value: n })}
+          >
+            {n} VP
+          </button>
+        ))}
+        <label className="vptarget__custom">
+          <span
+            className={`vptarget__btn ${custom ? 'is-on' : ''}`}
+            aria-hidden="true"
+          >
+            Custom
+          </span>
+          <input
+            className="vptarget__input"
+            type="number"
+            min="1"
+            step="1"
+            inputMode="numeric"
+            aria-label="Custom victory point target"
+            value={state.vpTarget}
+            onChange={(e) =>
+              dispatch({
+                type: 'SET_VP_TARGET',
+                value: Math.max(1, parseInt(e.target.value, 10) || 1),
+              })
+            }
+          />
+        </label>
+      </div>
 
       <div className="setup">
         {SEATS.map((seat) => {

@@ -1,10 +1,12 @@
+import { useEffect, useState } from 'react'
 import { STRATEGY_CARDS } from '../data/strategyCards'
 import { InitiativeTile } from '../components/InitiativeTile'
 import { FactionCrest } from '../components/FactionCrest'
 import { Modal } from '../components/Modal'
 import { colorById, readableInk } from '../data/colors'
 import { factionById } from '../data/factions'
-import { SEATS, activeSeat, cardForSeat, seatOf } from '../state'
+import { SEATS, activeSeat, cardForSeat, seatOf, timeFor } from '../state'
+import { formatDuration } from '../time'
 
 const CHOICES = [
   { kind: 'strategy', label: 'Strategy Action', hint: 'Resolve your strategy card, then exhaust it.' },
@@ -57,6 +59,17 @@ function SpeakerPrompt({ state, dispatch }) {
 
 export function ActionPhase({ state, dispatch }) {
   const seat = activeSeat(state)
+  const running = seat != null && state.turnStartedAt != null
+
+  // The clock lives in state as a single timestamp; this only exists to make
+  // the rendered figure move once a second.
+  const [, tick] = useState(0)
+  useEffect(() => {
+    if (!running) return
+    const id = setInterval(() => tick((n) => n + 1), 500)
+    return () => clearInterval(id)
+  }, [running, state.turnStartedAt])
+
   const player = seat ? seatOf(state, seat) : null
   const color = player ? colorById(player.color) : null
   const card = seat ? cardForSeat(state.picks, seat) : null
@@ -101,6 +114,12 @@ export function ActionPhase({ state, dispatch }) {
                 {card.initiative} {card.name}
               </span>
             )}
+            <span
+              className={`turntimer ${running ? 'turntimer--live' : ''}`}
+              title="Time this player has spent on their turns, all rounds"
+            >
+              {formatDuration(timeFor(state, seat))}
+            </span>
           </div>
 
           <div className="choices">

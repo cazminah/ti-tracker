@@ -6,6 +6,8 @@ import { StrategyPhase } from './screens/StrategyPhase'
 import { ActionPhase } from './screens/ActionPhase'
 import { StatusPhase } from './screens/StatusPhase'
 import { AgendaPhase } from './screens/AgendaPhase'
+import { GameOverScreen } from './screens/GameOverScreen'
+import { EndGamePrompt } from './components/EndGamePrompt'
 
 const SCREENS = {
   setup: SetupScreen,
@@ -13,6 +15,7 @@ const SCREENS = {
   action: ActionPhase,
   status: StatusPhase,
   agenda: AgendaPhase,
+  gameover: GameOverScreen,
 }
 
 export default function App() {
@@ -30,10 +33,13 @@ export default function App() {
 
   return (
     <div className="app">
-      <ScoreBar state={state} dispatch={dispatch} />
+      {/* The header's score steppers are what ends the game, so it goes away
+          once the game has. */}
+      {state.screen !== 'gameover' && <ScoreBar state={state} dispatch={dispatch} />}
       <main className="app__main">
         <Screen state={state} dispatch={dispatch} />
       </main>
+      {state.endPrompt && <EndGamePrompt state={state} dispatch={dispatch} />}
       {state.toast && (
         <div className="toast" role="status" onClick={() => dispatch({ type: 'CLEAR_TOAST' })}>
           {state.toast}
