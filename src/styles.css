@@ -1,0 +1,567 @@
+/*
+ * Strategy card names. The bundled file is public/fonts/"Handel Gothic D
+ * Bold.otf" — the spaces have to be percent-encoded in the url(). The other
+ * sources are fallbacks for a differently named drop-in or an installed copy;
+ * if none resolve the browser falls through to the next family in --font-card.
+ */
+@font-face {
+  font-family: 'Handel Gothic D';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src:
+    url('/fonts/Handel%20Gothic%20D%20Bold.otf') format('opentype'),
+    local('Handel Gothic D Bold'),
+    local('HandelGothicD-Bold');
+}
+
+:root {
+  --bg: #0b0d14;
+  --bg2: #12151f;
+  --panel: #171b27;
+  --panel2: #1e2331;
+  --line: #2b3145;
+  --ink: #e8ebf3;
+  --ink-dim: #99a1b8;
+  --gold: #d8b86a;
+  --accent: #4d7de0;
+  --font-card: 'Handel Gothic D', 'Handel Gothic', 'Titillium Web', 'Outfit',
+    'Segoe UI', system-ui, sans-serif;
+  --radius: 10px;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html {
+  /* On the background rather than the body so short screens don't band. */
+  background:
+    radial-gradient(1200px 700px at 70% -10%, #182038 0%, transparent 60%),
+    radial-gradient(900px 600px at 10% 110%, #1a1430 0%, transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: transparent;
+  color: var(--ink);
+  font: 15px/1.5 "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+}
+
+button { font: inherit; color: inherit; }
+
+/* ---------------------------------------------------------------- score bar */
+
+.scorebar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 10px 20px;
+  background: linear-gradient(180deg, #151a28 0%, #10131d 100%);
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+}
+
+.scorebar__brand { display: flex; flex-direction: column; line-height: 1.2; }
+.scorebar__title {
+  font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold);
+}
+.scorebar__round { font-size: 12px; color: var(--ink-dim); }
+
+.scorebar__reset {
+  align-self: flex-start; margin-top: 3px; padding: 2px 7px; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 6px; background: transparent;
+  font-size: 11px; color: var(--ink-dim);
+}
+.scorebar__reset:hover { color: var(--ink); border-color: #55405a; }
+
+.scorebar__players { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
+
+.ptile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 6px 8px;
+  min-width: 132px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--pc);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.ptile--speaker { box-shadow: inset 0 0 0 1px var(--gold); }
+
+.ptile__id { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.ptile__seat { font-size: 11px; color: var(--ink-dim); }
+.ptile__speaker { color: var(--gold); margin-left: 3px; }
+.ptile__faction {
+  font-size: 13px; font-weight: 600; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; max-width: 96px;
+}
+
+.ptile__score { display: flex; align-items: center; gap: 2px; margin-left: auto; }
+.ptile__vp { font-size: 20px; font-weight: 700; min-width: 22px; text-align: center; }
+
+.ptile__step {
+  width: 22px; height: 22px; padding: 0;
+  border: 1px solid var(--line); border-radius: 6px;
+  background: var(--panel2); cursor: pointer;
+  opacity: 0; transition: opacity 120ms ease, background 120ms ease;
+}
+.ptile:hover .ptile__step,
+.ptile:focus-within .ptile__step { opacity: 1; }
+.ptile__step:hover { background: var(--accent); }
+
+/* ------------------------------------------------------------------ layout */
+
+.app__main { padding: 22px 20px 60px; }
+.screen { max-width: 1180px; margin: 0 auto; }
+/* The initiative row needs more room than a column of prose. */
+.screen--wide { max-width: 1400px; }
+.screen__title { margin: 4px 0 4px; font-size: 26px; letter-spacing: 0.02em; }
+.screen__h2 { margin: 26px 0 10px; font-size: 16px; color: var(--gold); letter-spacing: .1em; text-transform: uppercase; }
+.screen__sub { margin: 0 0 20px; color: var(--ink-dim); }
+.screen__actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
+
+.hint { color: var(--ink-dim); font-size: 13px; text-align: right; margin: 8px 0 0; }
+
+.btn {
+  padding: 11px 20px; border-radius: var(--radius); border: 1px solid var(--line);
+  background: var(--panel2); cursor: pointer; font-weight: 600;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.btn:hover:not(:disabled) { background: #283049; }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn--primary { background: var(--accent); border-color: #6a94ea; }
+.btn--primary:hover:not(:disabled) { background: #5d8bea; }
+.btn--ghost { background: transparent; }
+
+/* ------------------------------------------------------------------- setup */
+
+.setup {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+}
+.seat {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 14px;
+}
+.seat__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.seat__num { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
+
+.swatches { display: flex; gap: 5px; margin-bottom: 12px; flex-wrap: wrap; }
+.swatch {
+  width: 26px; height: 26px; border-radius: 50%; cursor: pointer; flex: none;
+  border: 2px solid rgba(255, 255, 255, .18);
+  transition: transform 110ms ease, border-color 110ms ease;
+}
+.swatch:hover:not(:disabled) { transform: scale(1.12); }
+.swatch--on { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(216, 184, 106, .25); }
+.swatch:disabled { opacity: .22; cursor: not-allowed; }
+
+.select {
+  width: 100%; padding: 9px 10px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--panel2); color: var(--ink);
+}
+
+/* ------------------------------------------------------------------ crests */
+
+.crest { display: block; flex: none; }
+.crest--img { object-fit: contain; }
+.crest--empty {
+  display: block; border-radius: 50%;
+  border: 1px dashed var(--line); background: rgba(255, 255, 255, .03);
+}
+
+/* ---------------------------------------------------------- strategy cards */
+
+.cardgrid {
+  display: grid; gap: 14px; align-items: stretch;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 760px) { .cardgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.stratcard {
+  position: relative; padding: 0; text-align: left; overflow: hidden;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--panel); cursor: default;
+  transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+}
+button.stratcard:not(:disabled) { cursor: pointer; }
+button.stratcard:not(:disabled):hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .55);
+  border-color: var(--hue);
+}
+/*
+ * The printings aren't the same shape (400x499, 390x461, 449x556), which is
+ * what made the banners below float. A fixed aspect ratio fixes that.
+ *
+ * The two Ω scans carry transparent padding — Diplomacy 2.1% either side,
+ * Construction ~1% right and bottom — so letterboxing them into the box left
+ * them visibly smaller than the other six. `cover` fills the box instead and
+ * eats that padding: it trims 2.6% per side on Diplomacy, of which 2.1% is
+ * padding and the rest is the card's dark outer edge.
+ */
+.stratcard__art { position: relative; aspect-ratio: 400 / 499; background: #05060a; }
+.stratcard__img {
+  display: block; width: 100%; height: 100%;
+  object-fit: cover; object-position: center;
+}
+
+.stratcard--taken { opacity: .96; }
+.stratcard--exhausted { opacity: .38; filter: grayscale(.65); }
+.stratcard--unpicked { opacity: .42; filter: grayscale(.5); }
+
+.stratcard__stamp {
+  position: absolute; inset: auto 0 38% 0; text-align: center;
+  font-size: 15px; font-weight: 800; letter-spacing: .3em; text-transform: uppercase;
+  color: #fff; background: rgba(0, 0, 0, .55); padding: 5px 0;
+  transform: rotate(-8deg);
+}
+
+/* Shared by the draft cards and the action-phase tiles. */
+.ownerbanner {
+  position: relative;
+  display: flex; align-items: center; gap: 7px;
+  min-height: 46px; padding: 7px 9px;
+  border: 2px solid rgba(255, 255, 255, .34);
+  font-size: 20px; font-weight: 700; line-height: 1.1;
+}
+.ownerbanner--empty {
+  background: #22262f; color: var(--ink-dim);
+  border-color: rgba(255, 255, 255, .12);
+  font-weight: 600; font-style: italic;
+}
+.ownerbanner__name {
+  flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+
+.tg {
+  position: absolute; top: 8px; right: 8px; z-index: 2;
+  display: flex; align-items: center; gap: 4px;
+  padding: 3px 7px; border-radius: 999px;
+  background: rgba(10, 12, 18, .85); border: 1px solid rgba(224, 192, 74, .5);
+  font-size: 12px; font-weight: 700; color: #e6cf84;
+}
+
+/* The drawn card face (used when no image asset resolves). */
+.cardface {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; overflow: hidden;
+  background: linear-gradient(170deg, color-mix(in srgb, var(--hue) 26%, #12141d) 0%, #12141d 55%);
+  border-top: 3px solid var(--hue);
+}
+.cardface__head { display: flex; align-items: center; gap: 10px; padding: 10px 12px 6px; }
+.cardface__init {
+  display: grid; place-items: center; width: 34px; height: 34px; flex: none;
+  border-radius: 50%; background: var(--hue); color: #10121a;
+  font-size: 19px; font-weight: 800;
+}
+.cardface__name { font-size: 16px; font-weight: 700; letter-spacing: .02em; }
+.cardface__omega { color: var(--gold); font-style: normal; margin-left: 4px; }
+.cardface__body { padding: 2px 12px 10px; font-size: 11.5px; color: #c6cddf; }
+.cardface__body h4 {
+  margin: 8px 0 3px; font-size: 10px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--hue);
+}
+.cardface__body ul { margin: 0; padding-left: 15px; }
+.cardface__body li { margin-bottom: 3px; }
+.cardface__ed {
+  margin-top: auto; padding: 5px 12px; font-size: 10px;
+  color: var(--ink-dim); border-top: 1px solid var(--line);
+}
+
+/* ------------------------------------------------- strategy phase draftline */
+
+/* The player-coloured wash, shared by the action phase's turn banner and the
+   strategy phase's draft line so the two screens read the same. */
+.turnbanner,
+.draftline__item {
+  border-left: 5px solid var(--pc);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--pc) 34%, var(--panel)) 0%,
+    color-mix(in srgb, var(--pc) 8%, var(--panel)) 100%
+  );
+}
+
+.draftline { list-style: none; margin: 0 0 18px; padding: 0; display: grid; gap: 6px; }
+/* Grid rather than flex so the pills line up down the column. */
+.draftline__item {
+  display: grid; align-items: center; gap: 12px;
+  grid-template-columns: 20px auto minmax(0, 165px) 1fr auto;
+  padding: 8px 14px; border-radius: 8px;
+  border: 1px solid var(--line);
+  opacity: .72;
+}
+.draftline__item.is-done { opacity: 1; }
+.draftline__item.is-now {
+  opacity: 1; border-color: var(--gold);
+  box-shadow: 0 0 0 1px rgba(216, 184, 106, .35);
+}
+.draftline__pos { color: var(--ink-dim); font-size: 12px; }
+.draftline__name {
+  font-size: 24px; font-weight: 700; line-height: 1.1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.draftline__pick { color: var(--ink-dim); font-size: 14px; }
+.draftline__tg { color: #e6cf84; font-size: 13px; font-weight: 700; }
+
+.turnbanner {
+  display: flex; align-items: center; gap: 12px; margin: 0 0 18px;
+  padding: 12px 16px; border-radius: var(--radius);
+  border: 1px solid var(--line);
+}
+.turnbanner span { color: var(--ink-dim); }
+.turnbanner--big { margin: 22px 0 14px; padding: 14px 18px; gap: 16px; }
+.turnbanner__faction {
+  flex: 0 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 36px; font-weight: 700; line-height: 1.1;
+}
+/*
+ * The card-in-a-pill, shared by the turn banner and the draft line. Each site
+ * sets only the height, which tracks the faction name beside it, and a type
+ * size about 0.75 of that so the label sits comfortably inside.
+ */
+.cardpill {
+  flex: none; justify-self: start;
+  display: inline-flex; align-items: center;
+  border-radius: 999px;
+  font-family: var(--font-card);
+  font-weight: 700; line-height: 1; white-space: nowrap;
+}
+.turnbanner .turnbanner__card { height: 36px; padding: 0 16px; font-size: 28px; }
+.draftline__card { height: 24px; padding: 0 11px; font-size: 18px; }
+
+/* ------------------------------------------------------------ action phase */
+
+.initrow {
+  display: grid; gap: 10px; align-items: stretch;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+}
+/* Eight across only while the columns stay wide enough for 20px names. */
+@media (max-width: 1200px) { .initrow { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* One tile: blown-up initiative numeral, owner banner, card name. */
+.inittile {
+  position: relative;
+  display: flex; flex-direction: column; overflow: hidden;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--panel);
+  transition: opacity 140ms ease, filter 140ms ease;
+}
+
+/* Whose turn it is. z-index lifts the glow over the neighbouring tiles. */
+.inittile--active {
+  z-index: 2; border-color: var(--gold);
+  animation: tile-pulse 1.7s ease-in-out infinite;
+}
+@keyframes tile-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px var(--gold), 0 0 16px 2px rgba(216, 184, 106, .45); }
+  50%      { box-shadow: 0 0 0 3px var(--gold), 0 0 32px 9px rgba(216, 184, 106, .85); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .inittile--active {
+    animation: none;
+    box-shadow: 0 0 0 3px var(--gold), 0 0 26px 6px rgba(216, 184, 106, .7);
+  }
+}
+
+/* Nobody drafted it. */
+.inittile--unpicked { opacity: .42; filter: grayscale(.5); }
+
+/*
+ * Owner is out for the round. The dimming is applied to each band rather than
+ * the whole tile, so the PASSED stamp inside the artwork stays at full
+ * strength instead of fading along with everything else.
+ */
+.inittile--passed .initcrop__img,
+.inittile--passed .initcrop__drawn { opacity: .42; filter: grayscale(.6); }
+.inittile--passed .ownerbanner,
+.inittile--passed .inittile__namewrap { opacity: .42; filter: grayscale(.5); }
+
+/* Rubber-stamped across the initiative numeral. */
+.inittile__passed {
+  position: absolute; left: -8%; right: -8%; top: 50%; z-index: 3;
+  transform: translateY(-50%) rotate(-11deg);
+  padding: 5px 0; text-align: center;
+  background: rgba(9, 10, 16, .84);
+  border-top: 2px solid rgba(255, 255, 255, .8);
+  border-bottom: 2px solid rgba(255, 255, 255, .8);
+  font-size: 17px; font-weight: 800; letter-spacing: .24em; text-transform: uppercase;
+  color: #fff;
+}
+
+/*
+ * The numeral is cropped straight out of the card art. The image is blown up
+ * to 1/0.30 of the box width and 1/0.20 of its height, then pinned to the top
+ * right, which leaves exactly the numeral's corner visible. Keep these in step
+ * with INITIATIVE_CROP in InitiativeTile.jsx.
+ */
+.initcrop {
+  position: relative; aspect-ratio: 6 / 5; overflow: hidden; background: #05060a;
+}
+.initcrop__img {
+  position: absolute; top: 0; right: 0;
+  width: 333.333%; height: 500%;
+  object-fit: fill;
+}
+.initcrop__drawn {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--hue) 55%, #05060a), #05060a);
+}
+.initcrop__drawn span {
+  font-size: 54px; font-weight: 800; line-height: 1; color: #fff;
+  text-shadow: 0 0 14px var(--hue);
+}
+
+/* Stamped across the name box once the strategic action has been taken. */
+.inittile__namewrap { position: relative; }
+.inittile__used {
+  position: absolute; inset: 0; z-index: 2;
+  display: grid; place-items: center; pointer-events: none;
+}
+.inittile__used::before {
+  content: 'Used';
+  /* Deliberately narrow: the card name stays half-readable behind it. */
+  padding: 4px 14px; border-radius: 999px;
+  background: #0b0d14; border: 1px solid rgba(255, 255, 255, .55);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .65);
+  font-size: 13px; font-weight: 800; letter-spacing: .22em; text-transform: uppercase;
+  color: #fff;
+}
+
+/*
+ * Fixed at two lines tall whether the name wraps or not, so every tile in the
+ * row ends at exactly the same height and the owner banners stay in line.
+ */
+.inittile__name.is-spent { filter: grayscale(.72) brightness(.5); }
+.inittile__name {
+  display: grid; place-items: center;
+  padding: 10px 6px; text-align: center;
+  background: var(--hue); color: var(--hue-ink);
+  /*
+   * One line at a single size for all eight, set by the longest name
+   * ("Construction") in the narrowest column (8-across, ~152px of content).
+   * 21px leaves room for Handel Gothic, which is wider than the fallback.
+   */
+  font-family: var(--font-card);
+  font-size: 21px; font-weight: 700; letter-spacing: .01em; line-height: 1.2;
+  white-space: nowrap;
+}
+.inittile__name em { font-style: normal; margin-left: 3px; opacity: .8; }
+
+
+.choices { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+/*
+ * Each button mixes its own accent (--cc) into the panel colour, so base,
+ * hover and selected are three strengths of one hue. Tactical keeps the
+ * neutral slate; only the two consequential choices are colour-coded.
+ */
+.choice {
+  --cc: #5a6a92;
+  text-align: left; padding: 14px 16px; cursor: pointer;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--cc) 40%, var(--line));
+  background: color-mix(in srgb, var(--cc) 16%, var(--panel));
+  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+}
+.choice--strategy { --cc: #35a184; }  /* teal-green: the productive move */
+.choice--pass { --cc: #a0544f; }      /* muted brick, well short of the reds on the cards */
+
+.choice:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--cc) 30%, var(--panel));
+  border-color: color-mix(in srgb, var(--cc) 70%, var(--line));
+}
+.choice.is-on {
+  background: color-mix(in srgb, var(--cc) 58%, var(--panel));
+  border-color: var(--cc);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--cc) 75%, transparent);
+}
+.choice:disabled { opacity: .4; cursor: not-allowed; }
+.choice__label { display: block; font-weight: 700; margin-bottom: 3px; }
+.choice__hint { display: block; font-size: 12px; color: var(--ink-dim); }
+.choice.is-on .choice__hint { color: rgba(255, 255, 255, .82); }
+
+.passed { margin-top: 22px; color: var(--ink-dim); font-size: 13px; }
+
+/* ------------------------------------------------------------------ modals */
+
+.modal__scrim {
+  position: fixed; inset: 0; z-index: 90;
+  display: grid; place-items: center; padding: 20px;
+  background: rgba(5, 6, 10, .78); backdrop-filter: blur(3px);
+}
+.modal {
+  width: min(620px, 100%); padding: 22px;
+  border: 1px solid var(--line); border-radius: 14px; background: var(--bg2);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, .7);
+}
+.modal__title { margin: 0 0 8px; font-size: 21px; color: var(--gold); }
+.modal__body { margin: 0 0 16px; color: var(--ink-dim); font-size: 14px; }
+.modal__close { margin-top: 14px; }
+
+.speakerpick { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.speakerpick__btn {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 14px 10px; cursor: pointer;
+  border: 1px solid var(--line); border-top: 4px solid var(--pc);
+  border-radius: var(--radius); background: var(--panel);
+}
+.speakerpick__btn:hover:not(:disabled) { background: var(--panel2); border-color: var(--gold); }
+.speakerpick__btn:disabled { opacity: .35; cursor: not-allowed; }
+.speakerpick__name { font-weight: 700; }
+.speakerpick__seat { font-size: 11px; color: var(--ink-dim); }
+
+/* ------------------------------------------------------- status and agenda */
+
+.steplist {
+  list-style: none; margin: 0; padding: 20px 24px;
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel);
+  font-size: 17px; line-height: 2;
+}
+.steplist__n { display: inline-block; min-width: 34px; color: var(--gold); font-weight: 700; }
+.steplist--agenda { font-size: 16px; line-height: 1.8; }
+.steplist__sub { list-style: none; margin: 4px 0 10px; padding-left: 34px; font-size: 14px; color: var(--ink-dim); }
+
+.votes { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.vote {
+  display: flex; align-items: center; gap: 9px; padding: 10px 12px;
+  border: 1px solid var(--line); border-left: 4px solid var(--pc);
+  border-radius: var(--radius); background: var(--panel);
+}
+.vote__order { width: 16px; color: var(--ink-dim); font-size: 12px; }
+.vote__name { font-weight: 600; }
+.vote__input {
+  margin-left: auto; width: 66px; padding: 7px 8px; text-align: center;
+  font-size: 17px; font-weight: 700;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel2); color: var(--ink);
+}
+
+/* ------------------------------------------------------------------- toast */
+
+.toast {
+  position: fixed; left: 50%; top: 96px; transform: translateX(-50%);
+  z-index: 95; padding: 18px 40px; cursor: pointer;
+  border: 1px solid var(--gold); border-radius: 14px;
+  background: rgba(16, 19, 29, .97);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .7);
+  font-size: 24px; font-weight: 800; letter-spacing: .1em; color: var(--gold);
+  animation: toast-in 260ms ease;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, -14px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
