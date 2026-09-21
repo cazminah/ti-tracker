@@ -510,9 +510,9 @@ function RiderBanner({ state, riderPick, onCancel }) {
 function AgendaSection({ state, dispatch, item, index, riderPick, setRiderPick }) {
   // Picking a new elected player, for the action cards that do that.
   const [changing, setChanging] = useState(false)
-  const canChange = live && !!item.outcome && !item.discarded && item.agendaId && agendaById(item.agendaId).kind === 'player'
   const live = item === currentAgenda(state)
   const agenda = item.agendaId ? agendaById(item.agendaId) : null
+  const canChange = live && !!item.outcome && !item.discarded && agenda?.kind === 'player'
   const started = item.voterIndex > 0 || Object.keys(item.votes).length > 0
   const tie = live ? speakerMustChoose(state, item) : null
   const predicting = live && beforeVoting(state) && riderPick?.rider
