@@ -10,6 +10,7 @@ import {
   AGENDAS_PER_PHASE,
   SEATS,
   activeVoter,
+  barredFromVoting,
   beforeVoting,
   currentAgenda,
   extraLeft,
@@ -136,6 +137,7 @@ function InfluenceRow({ state, dispatch, riderPick, setRiderPick }) {
   const cast = state.agendas.some((a) => a.voterIndex > 0 || Object.keys(a.votes).length)
   const riding = beforeVoting(state)
   const sitting = riderSeats(currentAgenda(state))
+  const barred = barredFromVoting(state)
 
   return (
     <>
@@ -154,7 +156,7 @@ function InfluenceRow({ state, dispatch, riderPick, setRiderPick }) {
                 voter === seat && 'is-now',
                 riding && 'is-riding',
                 menuOpen && 'is-open',
-                sitting.has(seat) && 'is-rider',
+                (sitting.has(seat) || barred.has(seat)) && 'is-rider',
               ].filter(Boolean).join(' ')}
               style={{ '--pc': colorById(player.color).hex }}
               role={riding ? 'button' : undefined}
@@ -185,7 +187,11 @@ function InfluenceRow({ state, dispatch, riderPick, setRiderPick }) {
                   }
                 />
               )}
-              {sitting.has(seat) && <span className="vote__stamp">Rider</span>}
+              {barred.has(seat) ? (
+                <span className="vote__stamp" title="Galactic Threat: the Nekro Virus cannot vote on agendas">No vote</span>
+              ) : (
+                sitting.has(seat) && <span className="vote__stamp">Rider</span>
+              )}
               {menuOpen && (
                 <RiderMenu
                   state={state}

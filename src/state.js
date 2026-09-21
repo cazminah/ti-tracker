@@ -69,6 +69,7 @@ export const initialState = () => ({
   agendas: [],             // this phase's agendas, in reveal order; see newAgenda
   lawsInPlay: [],          // { agendaId, outcome } for each law enacted, oldest first
   playedAgendas: [],       // agenda ids from earlier rounds' phases, i.e. out of the deck
+  riderPoints: {},         // seat -> victory points from correct Imperial Riders, for the tally
 })
 
 /**
@@ -275,6 +276,17 @@ export function vpSources(state, seat) {
     })
   }
 
+  const riders = state.riderPoints?.[seat] || 0
+  if (riders) {
+    rows.push({
+      key: 'imperial-rider',
+      tone: 'imperial',
+      label: 'Imperial Rider',
+      note: riders > 1 ? `Predicted ${riders}×` : 'Predicted an agenda',
+      points: riders,
+    })
+  }
+
   if (state.shardSeat === seat) {
     rows.push({ key: 'shard', tone: 'shard', label: 'Shard of the Throne', note: 'Relic', points: 1 })
   }
@@ -405,9 +417,19 @@ export function extraLeft(state, seat) {
 /** Seats that played a rider on `item`, and so sit its vote out. */
 export const riderSeats = (item) => new Set((item?.riders || []).map((r) => r.seat))
 
-/** The voting order for `item`, leaving out anyone who played a rider on it. */
+/**
+ * Seats that never vote: the Nekro Virus, whose Galactic Threat ability bars
+ * them from voting on any agenda.
+ */
+export const barredFromVoting = (state) =>
+  new Set([seatWithFaction(state, 'nekro')].filter((s) => s != null))
+
+/**
+ * The voting order for `item`, leaving out anyone who played a rider on it and
+ * anyone who can never vote.
+ */
 export const votersFor = (state, item) => {
-  const out = riderSeats(item)
+  const out = new Set([...riderSeats(item), ...barredFromVoting(state)])
   return votingOrder(state).filter((seat) => !out.has(seat))
 }
 
@@ -478,12 +500,57 @@ const patchAgenda = (state, patch) => ({
   agendas: [...state.agendas.slice(0, -1), { ...currentAgenda(state), ...patch }],
 })
 
-function resolveAgenda(state, outcome) {
+/** The seat whose `riderId` correctly predicted the current agenda, or null. */
+function correctRider(state, riderId) {
+  const item = currentAgenda(state)
+  if (!item?.outcome || item.discarded) return null
+  return item.riders?.find((r) => r.rider === riderId && r.option === item.outcome)?.seat ?? null
+}
+
+/**
+ * Pay out the rider rewards the tracker can apply itself, once the current
+ * agenda has an outcome that stands: the Politics Rider takes the speaker
+ * token, the Imperial Rider a victory point. `before` is what cancelling the
+ * end-of-game prompt, should the point bring it up, rolls back to.
+ */
+function payRiders(before, state) {
+  let next = state
+  const politics = correctRider(next, 'politics-rider')
+  if (politics != null) {
+    next = { ...patchAgenda(next, { speakerBefore: next.speakerSeat }), speakerSeat: politics }
+  }
+  const imperial = correctRider(next, 'imperial-rider')
+  if (imperial != null) {
+    next = { ...next, riderPoints: { ...next.riderPoints, [imperial]: (next.riderPoints?.[imperial] || 0) + 1 } }
+    next = withVP(before, next, imperial, 1)
+  }
+  return next
+}
+
+/** Take back what payRiders gave, while the outcome still stands. */
+function unpayRiders(state) {
+  let next = state
+  if (correctRider(next, 'politics-rider') != null) {
+    next = { ...next, speakerSeat: currentAgenda(next).speakerBefore ?? next.speakerSeat }
+  }
+  const imperial = correctRider(next, 'imperial-rider')
+  if (imperial != null) {
+    next = bumpVP(
+      { ...next, riderPoints: { ...next.riderPoints, [imperial]: Math.max(0, (next.riderPoints?.[imperial] || 0) - 1) } },
+      imperial,
+      -1
+    )
+  }
+  return next
+}
+
+/** Settle the current agenda on `outcome`; `before` as for payRiders. */
+function resolveAgenda(state, outcome, before = state) {
   const agenda = agendaById(currentAgenda(state).agendaId)
-  return {
+  return payRiders(before, {
     ...patchAgenda(state, { outcome, lawsBefore: state.lawsInPlay }),
     lawsInPlay: lawsAfter(state.lawsInPlay, agenda, outcome),
-  }
+  })
 }
 
 // ------------------------------------------------------------------ reducer
@@ -1009,10 +1076,14 @@ export function reducer(state, action) {
       const item = currentAgenda(state)
       if (!item?.outcome) return state
       const agenda = agendaById(item.agendaId)
-      return {
-        ...patchAgenda(state, { discarded: !item.discarded }),
-        lawsInPlay: item.discarded ? lawsAfter(item.lawsBefore, agenda, item.outcome) : item.lawsBefore,
+      // A discarded agenda has no effect, so its riders pay nothing either.
+      if (!item.discarded) {
+        return { ...patchAgenda(unpayRiders(state), { discarded: true }), lawsInPlay: item.lawsBefore }
       }
+      return payRiders(state, {
+        ...patchAgenda(state, { discarded: false }),
+        lawsInPlay: lawsAfter(item.lawsBefore, agenda, item.outcome),
+      })
     }
 
     case 'ADD_AGENDA_OPTION': {
@@ -1091,7 +1162,7 @@ export function reducer(state, action) {
       const totals = voteTotals(item)
       const top = Math.max(0, ...Object.values(totals))
       const leaders = Object.keys(totals).filter((k) => totals[k] === top)
-      return top > 0 && leaders.length === 1 ? resolveAgenda(next, leaders[0]) : next
+      return top > 0 && leaders.length === 1 ? resolveAgenda(next, leaders[0], state) : next
     }
 
     case 'BREAK_TIE': {
@@ -1104,8 +1175,11 @@ export function reducer(state, action) {
     case 'PREVIOUS_VOTER': {
       const item = currentAgenda(state)
       if (!item || item.voterIndex === 0) return state
+      // Rider rewards first, while the outcome they hang on is still there —
+      // and the speaker back where they were, so the voting order is too.
+      const base = item.outcome ? unpayRiders(state) : state
       return {
-        ...patchAgenda(state, { voterIndex: item.voterIndex - 1, outcome: null, lawsBefore: null, discarded: false }),
+        ...patchAgenda(base, { voterIndex: item.voterIndex - 1, outcome: null, lawsBefore: null, discarded: false }),
         lawsInPlay: item.outcome ? item.lawsBefore : state.lawsInPlay,
       }
     }
