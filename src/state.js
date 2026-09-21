@@ -1,6 +1,7 @@
 import { STRATEGY_CARDS, cardById } from './data/strategyCards'
 import {
   ACTION_SECRETS,
+  AGENDA_SECRETS,
   STATUS_SECRETS,
   pointsFor,
   objectiveById,
@@ -211,6 +212,12 @@ export const secretsOf = (state, seat) =>
 export function availableActionSecrets(state) {
   const taken = new Set(Object.values(state.secretScores || {}).flat())
   return ACTION_SECRETS.filter((o) => !taken.has(o.id)).filter(inPlay(state))
+}
+
+/** Agenda-phase secrets nobody has taken yet — likewise any player, any time. */
+export function availableAgendaSecrets(state) {
+  const taken = new Set(Object.values(state.secretScores || {}).flat())
+  return AGENDA_SECRETS.filter((o) => !taken.has(o.id)).filter(inPlay(state))
 }
 
 /** Giver seats whose Support for the Throne is still theirs to hand out. */
@@ -954,7 +961,9 @@ export function reducer(state, action) {
     case 'SCORE_ACTION_SECRET': {
       const { seat, objectiveId } = action
       if (seat == null || !objectiveId) return state
-      if (!availableActionSecrets(state).some((o) => o.id === objectiveId)) return state
+      // Agenda-phase secrets come through here too; they score the same way.
+      const open = [...availableActionSecrets(state), ...availableAgendaSecrets(state)]
+      if (!open.some((o) => o.id === objectiveId)) return state
       return withVP(state, {
         ...state,
         secretScores: {

@@ -119,6 +119,9 @@ export const STATUS_SECRETS = SECRETS.filter(
 /** Secrets scored off the back of something done during the action phase. */
 export const ACTION_SECRETS = SECRETS.filter((o) => o.type === 'action')
 
+/** Secrets scored during the agenda phase, on what the agendas did. */
+export const AGENDA_SECRETS = SECRETS.filter((o) => o.type === 'agenda')
+
 /** Secrets a player may hold, before The Obsidian raises it to four. */
 export const SECRET_LIMIT = 3
 

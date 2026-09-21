@@ -9,10 +9,12 @@ import { factionById } from '../data/factions'
 import { objectiveLabel } from '../data/objectives'
 import {
   availableActionSecrets,
+  availableAgendaSecrets,
   custodiansOpen,
   secretsOf,
   seatOf,
   unspentSupports,
+  votingOrder,
 } from '../state'
 
 /**
@@ -24,18 +26,26 @@ import {
  * and Support for the Throne can change hands on anybody's turn, so those run
  * off a seat you pick out of the row — which starts on the active player and
  * goes back to them when the turn moves on.
+ *
+ * With `phase="agenda"` it is the agenda phase's version: no tokens, nobody's
+ * turn to default to (the banner waits for a player to be picked), and the
+ * agenda-phase secrets in place of the action-phase ones.
  */
-export function VictoryPanel({ state, dispatch, activeSeat }) {
+export function VictoryPanel({ state, dispatch, activeSeat, phase = 'action' }) {
+  const agenda = phase === 'agenda'
   const [open, setOpen] = useState(false)
   // Tied to the turn it was made on, so a stale pick can't outlive its turn.
   const [pick, setPick] = useState({ seq: -1, seat: null })
 
-  const selected = pick.seq === state.turnSeq && pick.seat != null ? pick.seat : activeSeat
+  const selected = agenda
+    ? pick.seat
+    : pick.seq === state.turnSeq && pick.seat != null ? pick.seat : activeSeat
   const choose = (seat) => setPick({ seq: state.turnSeq, seat })
+  const seats = agenda ? votingOrder(state) : state.initiativeSeats
 
-  const player = seatOf(state, selected)
-  const color = colorById(player.color)
-  const secrets = secretsOf(state, selected)
+  const player = selected != null ? seatOf(state, selected) : null
+  const color = player ? colorById(player.color) : null
+  const secrets = selected != null ? secretsOf(state, selected) : []
   const givers = unspentSupports(state).filter((g) => g !== selected)
 
   return (
@@ -49,13 +59,15 @@ export function VictoryPanel({ state, dispatch, activeSeat }) {
         <span className="vp__chevron" aria-hidden="true">›</span>
         Score Victory Points
         <span className="vp__toggle-hint">
-          Custodians, the Shard, action secrets and Support for the Throne
+          {agenda
+            ? 'Agenda phase secrets and Support for the Throne'
+            : 'Custodians, the Shard, action secrets and Support for the Throne'}
         </span>
       </button>
 
       {open && (
         <div className="vp__body">
-          <div className="vp__tokens">
+          {!agenda && <div className="vp__tokens">
             <MecatolRex
               state={state}
               locked={!custodiansOpen(state)}
@@ -67,10 +79,10 @@ export function VictoryPanel({ state, dispatch, activeSeat }) {
               once this turn ends; the Shard can be taken off its holder at any time,
               and the point goes with it.
             </p>
-          </div>
+          </div>}
 
           <div className="objplayers">
-            {state.initiativeSeats.map((s) => (
+            {seats.map((s) => (
               <PlayerBox
                 key={s}
                 state={state}
@@ -82,17 +94,21 @@ export function VictoryPanel({ state, dispatch, activeSeat }) {
             ))}
           </div>
 
-          <div className="turnbanner objbanner vp__banner" style={{ '--pc': color.hex }}>
+          {agenda && selected == null && (
+            <p className="vp__tokenhint">Click a player to score for them.</p>
+          )}
+
+          {player && <div className="turnbanner objbanner vp__banner" style={{ '--pc': color.hex }}>
             <FactionCrest factionId={player.factionId} size={38} />
             <strong className="objbanner__faction">
               {factionById(player.factionId).name}
-              {selected !== activeSeat && <span className="vp__offturn">off turn</span>}
+              {!agenda && selected !== activeSeat && <span className="vp__offturn">off turn</span>}
             </strong>
 
             <div className="objbanner__secret">
               <ObjectivePicker
-                options={availableActionSecrets(state)}
-                placeholder="Score an action phase secret…"
+                options={agenda ? availableAgendaSecrets(state) : availableActionSecrets(state)}
+                placeholder={agenda ? 'Score an agenda phase secret…' : 'Score an action phase secret…'}
                 commitOnSelect
                 onConfirm={(objectiveId) =>
                   dispatch({ type: 'SCORE_ACTION_SECRET', seat: selected, objectiveId })
@@ -111,7 +127,7 @@ export function VictoryPanel({ state, dispatch, activeSeat }) {
                 }}
               >
                 <option value="">Gain Support for the Throne from…</option>
-                {state.initiativeSeats.map((s) => {
+                {seats.map((s) => {
                   const f = factionById(seatOf(state, s).factionId)
                   const mine = s === selected
                   return (
@@ -123,7 +139,7 @@ export function VictoryPanel({ state, dispatch, activeSeat }) {
                 })}
               </select>
             </div>
-          </div>
+          </div>}
 
           {secrets.length > 0 && (
             <div className="vp__scored">

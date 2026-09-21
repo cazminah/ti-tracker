@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { FactionCrest } from '../components/FactionCrest'
+import { VictoryPanel } from '../components/VictoryPanel'
 import { colorById, readableInk } from '../data/colors'
 import { factionById } from '../data/factions'
 import { AGENDA_DECK, agendaById, agendaLabel, splitOutcomes } from '../data/agendas'
@@ -720,6 +721,8 @@ export function AgendaPhase({ state, dispatch }) {
           )}
         </div>
       )}
+
+      <VictoryPanel state={state} dispatch={dispatch} phase="agenda" />
     </section>
   )
 }
