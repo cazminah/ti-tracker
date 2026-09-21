@@ -21,7 +21,7 @@ The app walks one round at a time through:
 | **Action Phase** | Initiative tiles in order; turns follow it. Strategy / tactical / pass, each behind a confirm, plus a panel for the five ways a point changes hands mid-phase. |
 | **Status Phase** | The eight status-phase steps, then objective scoring in initiative order. |
 | **Agenda Phase** | The agenda steps plus a vote box per player, ordered from the speaker's left. |
-| **End of Game** | Final standings, time per player, and the full draft history. |
+| **End of Game** | Final standings, where every point came from, time per player, and the full draft history. |
 
 The header is persistent: players in **initiative order**, with victory points.
 The order only changes when strategy cards are next drafted, so it stays stable
@@ -176,9 +176,18 @@ than billing someone for the hours the app spent shut.
 
 Confirming the prompt replaces the app with the final standings: the winning
 faction named in the headline, then a table of every player ranked on victory
-points — ties broken on initiative order — with their total time and the
-strategy card they drafted in each round. Rank, faction, points and time stay
-pinned while the round columns scroll, which starts to matter around round six.
+points — ties broken on initiative order — with where those points came from,
+their total time and the strategy card they drafted in each round. The left
+columns stay pinned while the round columns scroll, which starts to matter
+around round six; below 940px nothing sticks and the whole table scrolls
+instead, since five pinned columns would cover what they exist to anchor.
+
+**Points from** is derived from the records that granted each point — who
+scored which objective, who holds the Shard, who is holding whose Support —
+rather than from a running log, so it survives every undo. Two things have no
+record of their own: Imperial's Mecatol Rex point, which keeps a tally, and
+anything nudged in from the developer bar, which shows as *Unrecorded*. The
+column therefore always adds up to the number beside it.
 
 The draft history is logged at the *start* of each action phase, when that
 round's picks are final, so a game that ends mid-round still shows the round

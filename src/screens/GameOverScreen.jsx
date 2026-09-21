@@ -1,7 +1,7 @@
 import { FactionCrest } from '../components/FactionCrest'
 import { colorById, readableInk } from '../data/colors'
 import { factionById } from '../data/factions'
-import { cardForSeat, playedRounds, seatOf, standings, timeFor } from '../state'
+import { cardForSeat, playedRounds, seatOf, standings, timeFor, vpSources } from '../state'
 import { formatDuration } from '../time'
 
 /** "The Federation of Sol" reads badly after "our new", so the article goes. */
@@ -31,6 +31,7 @@ export function GameOverScreen({ state, dispatch }) {
               <th className="gameover__stick gameover__rankcol">#</th>
               <th className="gameover__stick gameover__factioncol">Faction</th>
               <th className="gameover__stick gameover__vpcol gameover__num">VP</th>
+              <th className="gameover__stick gameover__srccol">Points from</th>
               <th className="gameover__stick gameover__timecol gameover__num">Time</th>
               {rounds.map((r) => (
                 <th key={r} className="gameover__roundcol">R{r}</th>
@@ -42,6 +43,7 @@ export function GameOverScreen({ state, dispatch }) {
               const player = seatOf(state, seat)
               const color = colorById(player.color)
               const faction = factionById(player.factionId)
+              const sources = vpSources(state, seat)
               return (
                 <tr
                   key={seat}
@@ -59,6 +61,25 @@ export function GameOverScreen({ state, dispatch }) {
                     </span>
                   </td>
                   <td className="gameover__stick gameover__vpcol gameover__num gameover__vp">{state.scores[seat] ?? 0}</td>
+                  <td className="gameover__stick gameover__srccol">
+                    {/* Derived from the records that granted each point, so it
+                        always reconciles with the number beside it. */}
+                    <ul className="vpsrc">
+                      {sources.map((src) => (
+                        <li
+                          key={src.key}
+                          className={`vpsrc__row ${src.key === 'rest' ? 'is-rest' : ''}`}
+                          title={src.note}
+                        >
+                          <span className="vpsrc__label">{src.label}</span>
+                          <span className="vpsrc__n">{src.points}</span>
+                        </li>
+                      ))}
+                      {!sources.length && (
+                        <li className="vpsrc__row gameover__none">—</li>
+                      )}
+                    </ul>
+                  </td>
                   <td className="gameover__stick gameover__timecol gameover__num">
                     {formatDuration(timeFor(state, seat))}
                   </td>

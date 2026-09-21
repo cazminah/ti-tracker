@@ -55,14 +55,19 @@ button { font: inherit; color: inherit; }
 
 /* ---------------------------------------------------------------- score bar */
 
+/*
+ * Three tracks rather than two so the players sit on the middle of the page
+ * rather than the middle of whatever the brand leaves behind: the empty third
+ * track balances the first.
+ */
 .scorebar {
   position: sticky;
   top: 0;
   z-index: 40;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 20px;
-  flex-wrap: wrap;
   padding: 10px 20px;
   background: linear-gradient(180deg, #151a28 0%, #10131d 100%);
   border-bottom: 1px solid var(--line);
@@ -84,15 +89,23 @@ button { font: inherit; color: inherit; }
 .scorebar__reset:hover { color: var(--ink); border-color: #55405a; }
 .scorebar__reset.is-on { color: #8fe0c0; border-color: #35a184; }
 
-.scorebar__players { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
+.scorebar__players {
+  display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+}
+
+/* Too narrow to centre anything: fall back to a plain wrapping row. */
+@media (max-width: 1100px) {
+  .scorebar { display: flex; flex-wrap: wrap; }
+  .scorebar__players { flex: 1; justify-content: flex-start; }
+}
 
 .ptile {
   position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px 6px 8px;
-  min-width: 118px;
+  padding: 6px 12px 6px 9px;
+  min-width: 138px;
   border: 1px solid var(--line);
   border-left: 4px solid var(--pc);
   border-radius: var(--radius);
@@ -699,7 +712,18 @@ button.vptarget__btn:hover { color: var(--ink); border-color: #55405a; }
 .gameover__rankcol    { left: 0;     width: 52px;  min-width: 52px; }
 .gameover__factioncol { left: 52px;  width: 170px; min-width: 170px; }
 .gameover__vpcol      { left: 222px; width: 56px;  min-width: 56px; }
-.gameover__timecol    { left: 278px; width: 88px;  min-width: 88px; }
+.gameover__srccol     { left: 278px; width: 214px; min-width: 214px; }
+.gameover__timecol    { left: 492px; width: 88px;  min-width: 88px; }
+
+/*
+ * Five sticky columns is 580px, which on a narrow screen would cover the
+ * round columns they exist to anchor. Below that width nothing sticks and
+ * the whole table simply scrolls.
+ */
+@media (max-width: 940px) {
+  .gameover__stick { position: static; }
+  .gameover__timecol { box-shadow: none; }
+}
 /* Only the last of the pinned columns casts the edge shadow. */
 .gameover__timecol { box-shadow: 8px 0 12px -10px rgba(0, 0, 0, .9); }
 
@@ -710,6 +734,23 @@ button.vptarget__btn:hover { color: var(--ink); border-color: #55405a; }
 .gameover__num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .gameover__vp { font-size: 19px; font-weight: 700; }
 .gameover__roundcol { white-space: nowrap; }
+
+/* Where a player's points came from, one line each. */
+.vpsrc { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.vpsrc__row {
+  display: flex; align-items: baseline; gap: 8px;
+  font-size: 12px; line-height: 1.35; color: var(--ink-dim);
+}
+.vpsrc__label {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.vpsrc__n {
+  flex: none; min-width: 14px; text-align: right;
+  font-variant-numeric: tabular-nums; font-weight: 700; color: var(--gold);
+}
+/* Points nobody can account for shouldn't read as an achievement. */
+.vpsrc__row.is-rest { font-style: italic; }
+.vpsrc__row.is-rest .vpsrc__n { color: #c08a86; }
 .gameover__none { color: var(--ink-dim); }
 .cardpill--mini { height: 22px; padding: 0 10px; font-size: 14px; }
 .gameover__total { text-align: center; margin-top: 18px; }

@@ -7,7 +7,7 @@ import {
   stageDeck,
 } from './data/objectives'
 import { PLAYER_COLORS } from './data/colors'
-import { FACTIONS } from './data/factions'
+import { FACTIONS, factionById } from './data/factions'
 import { elapsedSince } from './time'
 
 export const SEATS = [1, 2, 3, 4, 5, 6]
@@ -60,6 +60,7 @@ export const initialState = () => ({
   supports: {},            // giver seat -> the seat holding their Support for the Throne
   turnSeq: 0,              // monotonic turn counter; only the custodians lock reads it
   imperialPrompt: false,   // Imperial's strategy action is mid-resolution
+  imperialPoints: {},      // seat -> Mecatol Rex points taken off Imperial, for the tally
 })
 
 /** Slots in each row: 2 stage I at setup, then one card a round after that. */
@@ -205,6 +206,59 @@ export const playedRounds = (state) =>
   Object.keys(state.draftLog || {})
     .map(Number)
     .sort((a, b) => a - b)
+
+/**
+ * Where a seat's victory points came from, for the end screen.
+ *
+ * Everything is derived from the record that granted the point rather than
+ * from a running log, so it stays right through every undo. The two things
+ * with no record of their own are Imperial's Mecatol Rex point, which keeps a
+ * tally, and anything nudged in by hand from the developer bar — reported as
+ * unrecorded so the column always adds up to the score beside it.
+ */
+export function vpSources(state, seat) {
+  const rows = []
+
+  for (const id of state.revealedObjectives || []) {
+    if (!scorersOf(state, id).includes(seat)) continue
+    const o = objectiveById(id)
+    if (o) rows.push({ key: id, label: o.name, note: `Stage ${o.stage} · ${o.description}`, points: pointsFor(o) })
+  }
+
+  for (const o of secretsOf(state, seat)) {
+    rows.push({ key: `s:${o.id}`, label: o.name, note: `Secret · ${o.description}`, points: 1 })
+  }
+
+  if (state.custodiansSeat === seat) {
+    rows.push({ key: 'custodians', label: 'Custodians', note: 'First to Mecatol Rex', points: 1 })
+  }
+
+  const imperial = state.imperialPoints?.[seat] || 0
+  if (imperial) {
+    rows.push({ key: 'imperial', label: 'Imperial (Mecatol Rex)', note: `Taken ${imperial}×`, points: imperial })
+  }
+
+  if (state.shardSeat === seat) {
+    rows.push({ key: 'shard', label: 'Shard of the Throne', note: 'Relic', points: 1 })
+  }
+
+  for (const giver of supportsHeldBy(state, seat)) {
+    const from = seatOf(state, giver)
+    rows.push({
+      key: `sup:${giver}`,
+      label: `Support from ${factionById(from.factionId)?.short ?? `P${giver}`}`,
+      note: 'Promissory note',
+      points: 1,
+    })
+  }
+
+  const counted = rows.reduce((sum, r) => sum + r.points, 0)
+  const rest = (state.scores[seat] || 0) - counted
+  if (rest !== 0) {
+    rows.push({ key: 'rest', label: 'Unrecorded', note: 'Adjusted by hand', points: rest })
+  }
+  return rows
+}
 
 /** Final standings: most victory points first, ties broken on initiative order. */
 export function standings(state) {
@@ -486,7 +540,15 @@ export function reducer(state, action) {
           )
         }
       }
-      if (action.mecatol) next = bumpVP(next, seat, 1)
+      if (action.mecatol) {
+        // The only point in the game with no record of its own, so it gets a
+        // tally — otherwise the end screen could not say where it came from.
+        next = bumpVP(
+          { ...next, imperialPoints: { ...next.imperialPoints, [seat]: (next.imperialPoints[seat] || 0) + 1 } },
+          seat,
+          1
+        )
+      }
 
       // The whole resolution is one move, so the end-of-game check runs once
       // over the total rather than firing halfway through the card.
