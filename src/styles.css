@@ -701,6 +701,56 @@ button.stratcard:not(:disabled):hover {
 .votebanner__note { color: var(--ink); font-size: 15px; }
 .votebanner__actions { display: flex; gap: 8px; margin-left: auto; color: var(--ink); }
 
+/* --- riders --- */
+
+.vote { position: relative; }
+.vote.is-riding { cursor: pointer; transition: border-color 120ms ease; }
+.vote.is-riding:hover, .vote.is-open { border-color: var(--gold); }
+.vote.is-open { z-index: 30; }
+/* Sat out of this agenda's vote: faded, with a stamp across it. */
+.vote.is-rider > :not(.vote__stamp):not(.ridermenu):not(.ridermenu__backdrop) { opacity: .35; }
+.vote__stamp {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-8deg);
+  padding: 1px 10px; border: 2px solid var(--gold); border-radius: 5px;
+  font-size: 13px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--gold); background: rgba(12, 14, 20, .8); pointer-events: none;
+}
+.influence__hint { margin-top: 6px; text-align: left; }
+
+.ridermenu__backdrop { position: fixed; inset: 0; z-index: 29; cursor: default; }
+.ridermenu {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 31;
+  display: flex; flex-direction: column; min-width: 190px; padding: 6px;
+  border: 1px solid var(--gold); border-radius: var(--radius); background: var(--bg2);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .6); cursor: default;
+}
+.ridermenu__title {
+  padding: 4px 8px 6px; font-size: 11px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--ink-dim);
+}
+.ridermenu__item {
+  padding: 7px 10px; border: 0; border-radius: 6px; background: transparent;
+  text-align: left; font-weight: 600; cursor: pointer;
+}
+.ridermenu__item:hover:not(:disabled) { background: var(--panel2); color: var(--gold); }
+.ridermenu__item:disabled { opacity: .35; cursor: not-allowed; text-decoration: line-through; }
+
+.agendaopt.is-predicting { cursor: pointer; border-style: dashed; border-color: var(--gold); }
+.agendaopt.is-predicting:hover { background: color-mix(in srgb, var(--gold) 10%, var(--panel)); }
+
+.riderpills { display: flex; flex-direction: column; gap: 4px; }
+.riderpill {
+  display: flex; align-items: center; gap: 5px; width: 100%; min-height: 24px; padding: 2px 8px;
+  border-radius: 999px; font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden;
+}
+.riderpill__name { overflow: hidden; text-overflow: ellipsis; }
+.riderpill.is-correct { box-shadow: 0 0 0 2px var(--gold); }
+.riderpill__remove {
+  margin-left: auto; flex: none; padding: 0 2px; border: 0; background: transparent;
+  color: inherit; font-size: 15px; line-height: 1; cursor: pointer; opacity: .75;
+}
+.riderpill__remove:hover { opacity: 1; }
+
 /* Darker than the shared primary so white text reads clearly on it. */
 .btn--cast { background: #2a55b8; border-color: #5a86e6; color: #fff; min-width: 150px; }
 .btn--cast:hover:not(:disabled) { background: #3263cf; }

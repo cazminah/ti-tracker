@@ -9,6 +9,7 @@ import {
 import { PLAYER_COLORS } from './data/colors'
 import { FACTIONS, factionById } from './data/factions'
 import { agendaById } from './data/agendas'
+import { riderById } from './data/riders'
 import { elapsedSince } from './time'
 
 export const SEATS = [1, 2, 3, 4, 5, 6]
@@ -86,6 +87,8 @@ const newAgenda = () => ({
   agendaId: null,
   replaced: [],
   discarded: false,
+  riders: [],         // { rider, seat, option }, played before voting
+
   options: [],        // typed-in outcomes, for planet and Covert Legislation cards
   votes: {},
   extra: {},
@@ -379,11 +382,32 @@ export function extraLeft(state, seat) {
   return extra - voteSplit(item.votes[seat]?.count || 0, base, extra).extra
 }
 
+/** Seats that played a rider on `item`, and so sit its vote out. */
+export const riderSeats = (item) => new Set((item?.riders || []).map((r) => r.seat))
+
+/** The voting order for `item`, leaving out anyone who played a rider on it. */
+export const votersFor = (state, item) => {
+  const out = riderSeats(item)
+  return votingOrder(state).filter((seat) => !out.has(seat))
+}
+
+/**
+ * True until the first vote on the current agenda: the window for replacing
+ * the agenda and for playing riders.
+ */
+export function beforeVoting(state) {
+  const item = currentAgenda(state)
+  return !!item?.agendaId && !item.outcome && item.voterIndex === 0 && !Object.keys(item.votes).length
+}
+
+/** Rider ids already played this agenda phase, on any agenda. */
+export const ridersUsed = (state) => new Set(state.agendas.flatMap((a) => (a.riders || []).map((r) => r.rider)))
+
 /** The seat choosing right now, or null when nobody is. */
 export function activeVoter(state) {
   const item = currentAgenda(state)
   if (!item?.agendaId || item.outcome) return null
-  return votingOrder(state)[item.voterIndex] ?? null
+  return votersFor(state, item)[item.voterIndex] ?? null
 }
 
 /** option -> total votes on it. */
@@ -410,8 +434,8 @@ function tiedLeaders(item) {
  * Options the speaker must choose between, or null if they needn't. An empty
  * list means nobody voted, so any option will do.
  */
-export function speakerMustChoose(item) {
-  if (!item || item.outcome || item.voterIndex < SEATS.length) return null
+export function speakerMustChoose(state, item) {
+  if (!item?.agendaId || item.outcome || item.voterIndex < votersFor(state, item).length) return null
   return tiedLeaders(item)
 }
 
@@ -933,6 +957,26 @@ export function reducer(state, action) {
     }
 
     /**
+     * A rider: `seat` predicts `option` and sits out the vote on this agenda.
+     * Any number per player, but each rider once per agenda phase, and all of
+     * them before the first vote.
+     */
+    case 'PLAY_RIDER': {
+      const { seat, rider, option } = action
+      const card = riderById(rider)
+      if (!beforeVoting(state) || !card || ridersUsed(state).has(rider)) return state
+      if (card.faction && card.faction !== seatOf(state, seat)?.factionId) return state
+      const item = currentAgenda(state)
+      return patchAgenda(state, { riders: [...item.riders, { rider, seat, option }] })
+    }
+
+    case 'REMOVE_RIDER': {
+      if (!beforeVoting(state)) return state
+      const item = currentAgenda(state)
+      return patchAgenda(state, { riders: item.riders.filter((r) => r.rider !== action.rider) })
+    }
+
+    /**
      * After the votes are in, the agenda is discarded with no effect — or,
      * pressed again, put back. Laws go back to how they were either way.
      */
@@ -955,10 +999,11 @@ export function reducer(state, action) {
     }
 
     case 'REMOVE_AGENDA_OPTION': {
-      // A typo can go, so long as nobody has voted for it.
+      // A typo can go, so long as nobody has voted or ridden on it.
       const item = currentAgenda(state)
       const key = `x:${action.label}`
       if (!item || item.outcome || Object.values(item.votes).some((v) => v.option === key)) return state
+      if (item.riders.some((r) => r.option === key)) return state
       return patchAgenda(state, { options: item.options.filter((o) => o !== action.label) })
     }
 
@@ -1016,7 +1061,7 @@ export function reducer(state, action) {
       if (activeVoter(state) == null) return state
       const item = currentAgenda(state)
       const next = patchAgenda(state, { voterIndex: item.voterIndex + 1 })
-      if (item.voterIndex + 1 < SEATS.length) return next
+      if (item.voterIndex + 1 < votersFor(state, item).length) return next
       // A tie, or no votes at all, waits on the speaker — see BREAK_TIE.
       const totals = voteTotals(item)
       const top = Math.max(0, ...Object.values(totals))
@@ -1026,7 +1071,7 @@ export function reducer(state, action) {
 
     case 'BREAK_TIE': {
       const item = currentAgenda(state)
-      if (speakerMustChoose(item) == null) return state
+      if (speakerMustChoose(state, item) == null) return state
       return resolveAgenda(state, action.option)
     }
 
