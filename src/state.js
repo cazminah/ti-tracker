@@ -77,9 +77,15 @@ export const initialState = () => ({
  * walks the voting order; reaching its end with no clear winner leaves the
  * speaker to break the tie. `lawsBefore` is what the laws were before this
  * one resolved, so Back can put them back.
+ *
+ * `replaced` lists cards discarded from this slot before voting, each swapped
+ * for another off the deck; `discarded` marks one thrown out after the votes
+ * were in, which then has no effect at all.
  */
 const newAgenda = () => ({
   agendaId: null,
+  replaced: [],
+  discarded: false,
   options: [],        // typed-in outcomes, for planet and Covert Legislation cards
   votes: {},
   extra: {},
@@ -913,7 +919,31 @@ export function reducer(state, action) {
     case 'PICK_AGENDA': {
       const item = currentAgenda(state)
       if (!item || item.voterIndex > 0 || Object.keys(item.votes).length) return state
-      return patchAgenda(state, { ...newAgenda(), agendaId: action.agendaId || null })
+      return patchAgenda(state, { ...newAgenda(), replaced: item.replaced, agendaId: action.agendaId || null })
+    }
+
+    /**
+     * "When an agenda is revealed": discard it and reveal another in its
+     * place. Only before voting; the slot is left empty for the next card.
+     */
+    case 'REPLACE_AGENDA': {
+      const item = currentAgenda(state)
+      if (!item?.agendaId || item.voterIndex > 0 || Object.keys(item.votes).length) return state
+      return patchAgenda(state, { ...newAgenda(), replaced: [...item.replaced, item.agendaId] })
+    }
+
+    /**
+     * After the votes are in, the agenda is discarded with no effect — or,
+     * pressed again, put back. Laws go back to how they were either way.
+     */
+    case 'DISCARD_AGENDA': {
+      const item = currentAgenda(state)
+      if (!item?.outcome) return state
+      const agenda = agendaById(item.agendaId)
+      return {
+        ...patchAgenda(state, { discarded: !item.discarded }),
+        lawsInPlay: item.discarded ? lawsAfter(item.lawsBefore, agenda, item.outcome) : item.lawsBefore,
+      }
     }
 
     case 'ADD_AGENDA_OPTION': {
@@ -1005,7 +1035,7 @@ export function reducer(state, action) {
       const item = currentAgenda(state)
       if (!item || item.voterIndex === 0) return state
       return {
-        ...patchAgenda(state, { voterIndex: item.voterIndex - 1, outcome: null, lawsBefore: null }),
+        ...patchAgenda(state, { voterIndex: item.voterIndex - 1, outcome: null, lawsBefore: null, discarded: false }),
         lawsInPlay: item.outcome ? item.lawsBefore : state.lawsInPlay,
       }
     }
@@ -1041,7 +1071,7 @@ export function reducer(state, action) {
         // of a reshuffle, which is left to the drop-down).
         playedAgendas: [
           ...(state.playedAgendas || []),
-          ...state.agendas.map((a) => a.agendaId).filter(Boolean),
+          ...state.agendas.flatMap((a) => [...(a.replaced || []), a.agendaId]).filter(Boolean),
         ],
         toast: `NEW ROUND: ${state.round + 1}`,
       }

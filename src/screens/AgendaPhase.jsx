@@ -162,13 +162,14 @@ function InfluenceRow({ state, dispatch }) {
 }
 
 /** The card as revealed, shaped like a public objective, with the winner lit. */
-function AgendaCard({ state, agenda, outcome }) {
+function AgendaCard({ state, agenda, outcome, discarded }) {
   const split = agenda.kind === 'for-against' ? splitOutcomes(agenda) : null
   const part = (key) =>
     !outcome ? '' : outcome === key ? 'is-won' : 'is-lost'
 
   return (
-    <div className="objcard objcard--flat agendacard">
+    <div className={`objcard objcard--flat agendacard ${discarded ? 'is-discarded' : ''}`}>
+      {discarded && <span className="agendacard__stamp">Discarded</span>}
       <span className="agendacard__kind">
         <span className={`agendacard__type agendacard__type--${agenda.type.toLowerCase()}`}>{agenda.type}</span>
         {agenda.elect}
@@ -368,7 +369,7 @@ function AgendaSection({ state, dispatch, item, index }) {
   const total = Object.values(voteTotals(item)).reduce((a, b) => a + b, 0)
   // Played agendas are in the discard. Should the deck ever run dry it is
   // reshuffled, which here means offering everything bar this phase's again.
-  const thisPhase = state.agendas.filter((a) => a !== item).map((a) => a.agendaId)
+  const thisPhase = state.agendas.flatMap((a) => [...(a.replaced || []), ...(a === item ? [] : [a.agendaId])])
   const discard = [...(state.playedAgendas || []), ...thisPhase]
   let deck = AGENDA_DECK.filter((a) => a.id === item.agendaId || !discard.includes(a.id))
   if (deck.length <= (item.agendaId ? 1 : 0)) {
@@ -378,7 +379,7 @@ function AgendaSection({ state, dispatch, item, index }) {
   const mine = voter != null ? item.votes[voter] : null
 
   return (
-    <section className={`agenda ${item.outcome ? 'is-resolved' : ''}`}>
+    <section className={`agenda ${item.outcome ? 'is-resolved' : ''} ${item.discarded ? 'is-discarded' : ''}`}>
       <div className="agenda__top">
         <h2 className="screen__h2 agenda__title">Agenda {index + 1}</h2>
         <select
@@ -393,7 +394,27 @@ function AgendaSection({ state, dispatch, item, index }) {
             <option key={a.id} value={a.id}>{agendaLabel(a)}</option>
           ))}
         </select>
+        {live && !item.outcome && (
+          <button
+            type="button"
+            className="btn btn--ghost agenda__replace"
+            disabled={!agenda || started}
+            title={
+              started
+                ? 'Voting has started on this agenda.'
+                : 'Discard this agenda and reveal another in its place.'
+            }
+            onClick={() => dispatch({ type: 'REPLACE_AGENDA' })}
+          >
+            Discard &amp; reveal another
+          </button>
+        )}
       </div>
+      {item.replaced?.length > 0 && (
+        <p className="agenda__replaced">
+          Discarded: {item.replaced.map((id) => agendaById(id)?.name).join(', ')}
+        </p>
+      )}
 
       {agenda && (
         <>
@@ -417,7 +438,7 @@ function AgendaSection({ state, dispatch, item, index }) {
           )}
 
           <div className="agenda__body">
-            <AgendaCard state={state} agenda={agenda} outcome={item.outcome} />
+            <AgendaCard state={state} agenda={agenda} outcome={item.outcome} discarded={item.discarded} />
             <Options state={state} dispatch={dispatch} item={item} index={index} agenda={agenda} live={live} />
           </div>
 
@@ -430,6 +451,16 @@ function AgendaSection({ state, dispatch, item, index }) {
                 onClick={() => dispatch({ type: 'PREVIOUS_VOTER' })}
               >
                 ← Back
+              </button>
+            )}
+            {live && item.outcome && (
+              <button
+                type="button"
+                className="btn btn--ghost"
+                title={item.discarded ? 'Put the agenda back and let it resolve.' : 'Discard the agenda: it has no effect.'}
+                onClick={() => dispatch({ type: 'DISCARD_AGENDA' })}
+              >
+                {item.discarded ? 'Undo discard' : 'Discard agenda'}
               </button>
             )}
             <p className="hint agenda__total">Votes cast: {total}</p>

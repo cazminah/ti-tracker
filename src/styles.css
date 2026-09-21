@@ -576,6 +576,21 @@ button.stratcard:not(:disabled):hover {
 .agenda__top { display: flex; align-items: center; gap: 16px; margin: 14px 0 0; }
 .agenda__title { margin: 0; flex: none; }
 .agenda__select { flex: 1; min-width: 0; }
+.agenda__replace { flex: none; padding: 9px 14px; }
+.agenda__replaced { margin: 8px 0 0; font-size: 13px; color: var(--ink-dim); }
+
+/* Thrown out after the vote: stamped, and the outcome no longer lit. */
+.agendacard { position: relative; }
+.agendacard__stamp {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-12deg);
+  padding: 4px 14px; border: 3px solid #e0625a; border-radius: 6px;
+  font-size: 22px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+  color: #e0625a; background: rgba(12, 14, 20, .75); pointer-events: none;
+}
+.agenda.is-discarded .agendacard__part,
+.agenda.is-discarded .agendacard__elected,
+.agenda.is-discarded .agendaopts { opacity: .4; }
+.agenda.is-discarded .agendacard__part.is-won { background: none; box-shadow: none; }
 .agenda__body {
   display: grid; gap: 16px; align-items: start; margin-top: 16px;
   grid-template-columns: 280px minmax(0, 1fr);
