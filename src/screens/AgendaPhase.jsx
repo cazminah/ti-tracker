@@ -17,6 +17,7 @@ import {
   riderSeats,
   ridersUsed,
   seatOf,
+  seatWithFaction,
   secretsOf,
   speakerMustChoose,
   voteParts,
@@ -647,7 +648,8 @@ export function AgendaPhase({ state, dispatch }) {
         </li>
         <li>
           <span className="steplist__n">2.</span>
-          Vote (In clockwise order starting with the person to the left of the speaker)
+          Vote (In clockwise order starting with the person to the left of the speaker
+          {seatWithFaction(state, 'argent') != null && '; the Argent Flight always vote first'})
         </li>
         <li>
           <span className="steplist__n">3.</span>

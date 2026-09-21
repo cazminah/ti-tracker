@@ -316,8 +316,28 @@ export function standings(state) {
 
 // ------------------------------------------------------------ agenda phase
 
-/** Voting order: clockwise from the speaker's left, so the speaker votes last. */
-export const votingOrder = (state) => seatOrderFrom((state.speakerSeat % SEATS.length) + 1)
+/** The seat playing `factionId`, or null if nobody is. */
+export const seatWithFaction = (state, factionId) =>
+  state.seats.find((s) => s.factionId === factionId)?.seat ?? null
+
+/**
+ * Voting order: clockwise from the speaker's left, so the speaker votes last —
+ * except that the Argent Flight always vote first, wherever they sit.
+ */
+export function votingOrder(state) {
+  const order = seatOrderFrom((state.speakerSeat % SEATS.length) + 1)
+  const argent = seatWithFaction(state, 'argent')
+  return argent == null ? order : [argent, ...order.filter((s) => s !== argent)]
+}
+
+/**
+ * Extra votes a seat starts every agenda with. The Argent Flight cast one
+ * more for each player in the game; everything else is entered at the table.
+ */
+function defaultExtra(state) {
+  const argent = seatWithFaction(state, 'argent')
+  return argent == null ? {} : { [argent]: SEATS.length }
+}
 
 /** The agenda being voted on or just resolved, i.e. the newest one. */
 export const currentAgenda = (state) => state.agendas.at(-1) ?? null
@@ -943,7 +963,12 @@ export function reducer(state, action) {
     case 'PICK_AGENDA': {
       const item = currentAgenda(state)
       if (!item || item.voterIndex > 0 || Object.keys(item.votes).length) return state
-      return patchAgenda(state, { ...newAgenda(), replaced: item.replaced, agendaId: action.agendaId || null })
+      return patchAgenda(state, {
+        ...newAgenda(),
+        replaced: item.replaced,
+        agendaId: action.agendaId || null,
+        extra: defaultExtra(state),
+      })
     }
 
     /**
