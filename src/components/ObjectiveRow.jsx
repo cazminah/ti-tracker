@@ -33,7 +33,7 @@ function Scorers({ state, objective }) {
  * player is scoring. Without one it is a flat panel — the end screen shows
  * the same cards but has nothing left to score.
  */
-function ObjectiveBox({ state, objective, seat, onScore }) {
+function ObjectiveBox({ state, objective, seat, onScore, lit }) {
   const body = (
     <>
       <span className="objcard__name">{objective.name}</span>
@@ -45,7 +45,9 @@ function ObjectiveBox({ state, objective, seat, onScore }) {
     </>
   )
 
-  if (!onScore) return <div className="objcard objcard--flat">{body}</div>
+  if (!onScore) {
+    return <div className={`objcard objcard--flat ${lit ? 'is-lit' : ''}`}>{body}</div>
+  }
 
   const scorers = scorersOf(state, objective.id)
   const mine = seat != null && scorers.includes(seat)
@@ -82,8 +84,11 @@ function ObjectiveBox({ state, objective, seat, onScore }) {
  * far, then face-down backs for the slots still to come. The backs are inert —
  * revealing happens once a round, from the status phase banner, after
  * everybody has scored.
+ *
+ * `highlightSeat` lights up the cards that seat has scored — the end screen
+ * points it at whichever player the cursor is over.
  */
-export function ObjectiveRow({ state, stage, seat, onScore }) {
+export function ObjectiveRow({ state, stage, seat, onScore, highlightSeat }) {
   const revealed = revealedOfStage(state, stage)
   const facedown = Math.max(0, PUBLIC_SLOTS - revealed.length)
 
@@ -92,7 +97,14 @@ export function ObjectiveRow({ state, stage, seat, onScore }) {
       <h3 className="objrow__head">Stage {stage}</h3>
       <div className="objrow">
         {revealed.map((o) => (
-          <ObjectiveBox key={o.id} state={state} objective={o} seat={seat} onScore={onScore} />
+          <ObjectiveBox
+            key={o.id}
+            state={state}
+            objective={o}
+            seat={seat}
+            onScore={onScore}
+            lit={highlightSeat != null && scorersOf(state, o.id).includes(highlightSeat)}
+          />
         ))}
         {Array.from({ length: facedown }).map((_, i) => (
           <div key={`back-${i}`} className="objcard objcard--back" aria-hidden="true">

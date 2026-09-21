@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { FactionCrest } from '../components/FactionCrest'
 import { colorById, readableInk } from '../data/colors'
 import { factionById } from '../data/factions'
@@ -18,6 +19,10 @@ const overlordName = (faction) =>
   (faction?.name ?? 'anonymous').replace(/^The\s+/i, '')
 
 export function GameOverScreen({ state, dispatch }) {
+  // Hovering a row lights that player's public objectives in the rows below.
+  const [lit, setLit] = useState(null)
+  const litColor = lit ? colorById(seatOf(state, lit).color)?.hex : null
+
   const ranked = standings(state)
   const rounds = playedRounds(state)
   const winner = ranked[0]
@@ -59,6 +64,8 @@ export function GameOverScreen({ state, dispatch }) {
                   key={seat}
                   className={i === 0 ? 'gameover__row gameover__row--win' : 'gameover__row'}
                   style={{ '--pc': color?.hex ?? '#3a3a42' }}
+                  onMouseEnter={() => setLit(seat)}
+                  onMouseLeave={() => setLit((s) => (s === seat ? null : s))}
                 >
                   <td className="gameover__stick gameover__rankcol">{i + 1}</td>
                   <td className="gameover__stick gameover__factioncol">
@@ -120,10 +127,14 @@ export function GameOverScreen({ state, dispatch }) {
         </table>
       </div>
 
-      <h2 className="screen__h2 gameover__pubhead">Public Objectives</h2>
-      <div className="gameover__publics">
-        <ObjectiveRow state={state} stage="I" />
-        <ObjectiveRow state={state} stage="II" />
+      <h2 className="screen__h2 gameover__pubhead">
+        Public Objectives
+        <span className="gameover__pubhint">Hover a player to light up theirs</span>
+      </h2>
+      {/* --hl is the hovered player's colour; the lit cards pick it up. */}
+      <div className="gameover__publics" style={{ '--hl': litColor ?? 'transparent' }}>
+        <ObjectiveRow state={state} stage="I" highlightSeat={lit} />
+        <ObjectiveRow state={state} stage="II" highlightSeat={lit} />
       </div>
 
       <p className="hint gameover__total">

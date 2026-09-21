@@ -700,6 +700,7 @@ button.vptarget__btn:hover { color: var(--ink); border-color: #55405a; }
   border-radius: 0 var(--radius) var(--radius) 0;
 }
 .gameover__row--win td { background: var(--panel2); box-shadow: inset 0 0 0 1px rgba(216, 184, 106, .35); }
+.gameover__row:hover td { background: color-mix(in srgb, var(--pc) 14%, var(--panel)); }
 
 /*
  * Rank, faction, points and time stay put while the round columns scroll past
@@ -906,6 +907,13 @@ button.pill--live:hover { background: rgb(var(--pill) / .28); color: var(--ink);
 .objcard--flat { cursor: default; }
 .objcard--flat:hover { transform: none; border-color: var(--line); box-shadow: none; }
 
+/* Lit by hovering that player's row, in their own colour. */
+.objcard.is-lit,
+.objcard--flat.is-lit:hover {
+  border-color: var(--hl);
+  box-shadow: 0 0 0 1px var(--hl), 0 0 24px -4px var(--hl);
+}
+
 /* A face-down slot is scenery: nothing to click, nothing to focus. */
 .objcard--back {
   align-items: center; justify-content: center; gap: 8px; padding: 10px;
@@ -1088,6 +1096,12 @@ button.pill--live:hover { background: rgb(var(--pill) / .28); color: var(--ink);
 
 /* The end screen's public objective rows sit under the table, left-aligned
    against the centred headline above them. */
-.gameover__pubhead { text-align: left; margin-top: 26px; }
+.gameover__pubhead {
+  display: flex; align-items: baseline; gap: 12px; text-align: left; margin-top: 26px;
+}
+.gameover__pubhint {
+  font-size: 11px; font-weight: 400; letter-spacing: 0;
+  text-transform: none; color: var(--ink-dim);
+}
 .gameover__publics { text-align: left; }
 .gameover__publics .objrow__head:first-of-type { margin-top: 0; }

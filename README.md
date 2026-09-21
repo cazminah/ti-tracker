@@ -191,7 +191,9 @@ trace; anything nudged in from the developer bar shows as *Unrecorded*.
 Public objectives are deliberately absent from that column. They appear below
 the table instead, as the two rows of cards the status phase uses, each
 carrying the crests of everyone who took it — saying it twice only made the
-column long enough to stop being readable.
+column long enough to stop being readable. Hovering a player's row lights up
+the cards they scored, in their own colour, so a twelve-point game can be read
+back one player at a time.
 
 Every point that can change hands is colour-coded the same way wherever it
 appears, in a player box, in the action panel or on the end screen: secrets in
