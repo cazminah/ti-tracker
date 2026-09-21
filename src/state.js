@@ -70,6 +70,7 @@ export const initialState = () => ({
   lawsInPlay: [],          // { agendaId, outcome } for each law enacted, oldest first
   playedAgendas: [],       // agenda ids from earlier rounds' phases, i.e. out of the deck
   riderPoints: {},         // seat -> victory points from correct Imperial Riders, for the tally
+  agendaPoints: [],        // { seat, delta, source } for points agendas moved, e.g. Mutiny
 })
 
 /**
@@ -280,11 +281,22 @@ export function vpSources(state, seat) {
   if (riders) {
     rows.push({
       key: 'imperial-rider',
-      tone: 'imperial',
+      tone: 'agenda',
       label: 'Imperial Rider',
       note: riders > 1 ? `Predicted ${riders}×` : 'Predicted an agenda',
       points: riders,
     })
+  }
+
+  // Agendas net per card, so a Political Censure given and then lost again
+  // doesn't leave a +1 and a −1 behind.
+  const byAgenda = {}
+  for (const e of state.agendaPoints || []) {
+    if (e.seat === seat) byAgenda[e.source] = (byAgenda[e.source] || 0) + e.delta
+  }
+  for (const [source, points] of Object.entries(byAgenda)) {
+    if (!points) continue
+    rows.push({ key: `agenda:${source}`, tone: 'agenda', label: agendaById(source)?.name ?? source, note: 'Agenda', points })
   }
 
   if (state.shardSeat === seat) {
@@ -507,47 +519,114 @@ function correctRider(state, riderId) {
   return item.riders?.find((r) => r.rider === riderId && r.option === item.outcome)?.seat ?? null
 }
 
+/** The Political Censure law's holder, if it is in play in `laws`. */
+const censureHolder = (laws) => {
+  const law = laws.find((l) => l.agendaId === 'political-censure')
+  return law ? Number(law.outcome.slice(1)) : null
+}
+
 /**
- * Pay out the rider rewards the tracker can apply itself, once the current
- * agenda has an outcome that stands: the Politics Rider takes the speaker
- * token, the Imperial Rider a victory point. `before` is what cancelling the
- * end-of-game prompt, should the point bring it up, rolls back to.
+ * The victory points the current agenda moves, now that it has an outcome
+ * that stands, as [{ seat, delta, source }] — `source` being the agenda (or
+ * the law it cost somebody) it came from, or 'imperial-rider'.
  */
-function payRiders(before, state) {
+function agendaDeltas(state) {
+  const item = currentAgenda(state)
+  const agenda = agendaById(item.agendaId)
+  const deltas = []
+
+  const imperial = correctRider(state, 'imperial-rider')
+  if (imperial != null) deltas.push({ seat: imperial, delta: 1, source: 'imperial-rider' })
+
+  if (agenda.id === 'mutiny') {
+    // Riders are not votes, so only seats that put votes on For count.
+    const forSeats = SEATS.filter((seat) => item.votes[seat]?.option === 'for' && item.votes[seat].count > 0)
+    for (const seat of forSeats) deltas.push({ seat, delta: item.outcome === 'for' ? 1 : -1, source: agenda.id })
+  }
+
+  if (agenda.id === 'seed-of-an-empire') {
+    // Read off the scores as the agenda resolves; a tie rewards everyone in it.
+    const scores = SEATS.map((seat) => state.scores[seat] || 0)
+    const target = item.outcome === 'for' ? Math.max(...scores) : Math.min(...scores)
+    for (const seat of SEATS) {
+      if ((state.scores[seat] || 0) === target) deltas.push({ seat, delta: 1, source: agenda.id })
+    }
+  }
+
+  if (agenda.id === 'political-censure') {
+    deltas.push({ seat: Number(item.outcome.slice(1)), delta: 1, source: agenda.id })
+  }
+
+  // The censure point goes with the card: losing the law loses the point.
+  const holder = censureHolder(item.lawsBefore || [])
+  if (holder != null && censureHolder(state.lawsInPlay) == null) {
+    deltas.push({ seat: holder, delta: -1, source: 'political-censure' })
+  }
+
+  return deltas
+}
+
+/**
+ * Apply what the current agenda does beyond the laws, once its outcome
+ * stands: the victory points it moves (see agendaDeltas) and the Politics
+ * Rider's speaker token. What was done is kept on the agenda so unsettle can
+ * take it back exactly. `before` is what cancelling the end-of-game prompt,
+ * should a point bring it up, rolls back to.
+ */
+function settle(before, state) {
   let next = state
+  const speakerBefore = next.speakerSeat
   const politics = correctRider(next, 'politics-rider')
-  if (politics != null) {
-    next = { ...patchAgenda(next, { speakerBefore: next.speakerSeat }), speakerSeat: politics }
+  if (politics != null) next = { ...next, speakerSeat: politics }
+
+  const applied = []
+  for (const { seat, delta, source } of agendaDeltas(state)) {
+    const prev = next.scores[seat] || 0
+    next = bumpVP(next, seat, delta)
+    // A point lost at 0 is no point lost, and must not come back on undo.
+    const actual = (next.scores[seat] || 0) - prev
+    if (!actual) continue
+    applied.push({ seat, delta: actual, source })
+    if (source === 'imperial-rider') {
+      next = { ...next, riderPoints: { ...next.riderPoints, [seat]: (next.riderPoints?.[seat] || 0) + actual } }
+    } else {
+      next = { ...next, agendaPoints: [...(next.agendaPoints || []), { seat, delta: actual, source }] }
+    }
   }
-  const imperial = correctRider(next, 'imperial-rider')
-  if (imperial != null) {
-    next = { ...next, riderPoints: { ...next.riderPoints, [imperial]: (next.riderPoints?.[imperial] || 0) + 1 } }
-    next = withVP(before, next, imperial, 1)
-  }
-  return next
+  next = patchAgenda(next, { settled: { speakerBefore, applied } })
+
+  // One end-of-game check over the lot, for the first player it carries over.
+  const reached = applied.find(
+    ({ seat, delta }) =>
+      delta > 0 && (before.scores[seat] || 0) < before.vpTarget && (next.scores[seat] || 0) >= before.vpTarget
+  )
+  return reached ? { ...next, endPrompt: { seat: reached.seat, undo: { ...before, endPrompt: null } } } : next
 }
 
-/** Take back what payRiders gave, while the outcome still stands. */
-function unpayRiders(state) {
-  let next = state
-  if (correctRider(next, 'politics-rider') != null) {
-    next = { ...next, speakerSeat: currentAgenda(next).speakerBefore ?? next.speakerSeat }
+/** Take back what settle did, while the outcome still stands. */
+function unsettle(state) {
+  const settled = currentAgenda(state)?.settled
+  if (!settled) return state
+  let next = { ...state, speakerSeat: settled.speakerBefore }
+  for (const { seat, delta, source } of settled.applied) {
+    next = bumpVP(next, seat, -delta)
+    if (source === 'imperial-rider') {
+      next = { ...next, riderPoints: { ...next.riderPoints, [seat]: Math.max(0, (next.riderPoints?.[seat] || 0) - delta) } }
+    } else {
+      // Drop the matching entry — the newest, which is this agenda's.
+      const log = [...(next.agendaPoints || [])]
+      const i = log.findLastIndex((e) => e.seat === seat && e.delta === delta && e.source === source)
+      if (i !== -1) log.splice(i, 1)
+      next = { ...next, agendaPoints: log }
+    }
   }
-  const imperial = correctRider(next, 'imperial-rider')
-  if (imperial != null) {
-    next = bumpVP(
-      { ...next, riderPoints: { ...next.riderPoints, [imperial]: Math.max(0, (next.riderPoints?.[imperial] || 0) - 1) } },
-      imperial,
-      -1
-    )
-  }
-  return next
+  return patchAgenda(next, { settled: null })
 }
 
-/** Settle the current agenda on `outcome`; `before` as for payRiders. */
+/** Resolve the current agenda on `outcome`; `before` as for settle. */
 function resolveAgenda(state, outcome, before = state) {
   const agenda = agendaById(currentAgenda(state).agendaId)
-  return payRiders(before, {
+  return settle(before, {
     ...patchAgenda(state, { outcome, lawsBefore: state.lawsInPlay }),
     lawsInPlay: lawsAfter(state.lawsInPlay, agenda, outcome),
   })
@@ -1078,9 +1157,9 @@ export function reducer(state, action) {
       const agenda = agendaById(item.agendaId)
       // A discarded agenda has no effect, so its riders pay nothing either.
       if (!item.discarded) {
-        return { ...patchAgenda(unpayRiders(state), { discarded: true }), lawsInPlay: item.lawsBefore }
+        return { ...patchAgenda(unsettle(state), { discarded: true }), lawsInPlay: item.lawsBefore }
       }
-      return payRiders(state, {
+      return settle(state, {
         ...patchAgenda(state, { discarded: false }),
         lawsInPlay: lawsAfter(item.lawsBefore, agenda, item.outcome),
       })
@@ -1177,7 +1256,7 @@ export function reducer(state, action) {
       if (!item || item.voterIndex === 0) return state
       // Rider rewards first, while the outcome they hang on is still there —
       // and the speaker back where they were, so the voting order is too.
-      const base = item.outcome ? unpayRiders(state) : state
+      const base = item.outcome ? unsettle(state) : state
       return {
         ...patchAgenda(base, { voterIndex: item.voterIndex - 1, outcome: null, lawsBefore: null, discarded: false }),
         lawsInPlay: item.outcome ? item.lawsBefore : state.lawsInPlay,

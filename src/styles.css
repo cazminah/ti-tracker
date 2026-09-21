@@ -1028,6 +1028,7 @@ button.vptarget__btn:hover { color: var(--ink); border-color: #55405a; }
 .pill--support  { --pill: 219 226 238; }
 .pill--imperial { --pill: 198 90 166; }
 .pill--shard    { --pill: 226 176 52; }
+.pill--agenda   { --pill: 86 142 232; }
 .pill--rest     { --pill: 150 154 168; }
 
 .pill--tip { cursor: help; }
