@@ -5,7 +5,9 @@ import { FactionCrest } from '../components/FactionCrest'
 import { Modal } from '../components/Modal'
 import { colorById, readableInk } from '../data/colors'
 import { factionById } from '../data/factions'
-import { SEATS, activeSeat, cardForSeat, seatOf, timeFor } from '../state'
+import { VictoryPanel } from '../components/VictoryPanel'
+import { objectiveById, pointsFor } from '../data/objectives'
+import { SEATS, activeSeat, cardForSeat, scorersOf, seatOf, timeFor } from '../state'
 import { formatDuration } from '../time'
 
 const CHOICES = [
@@ -52,6 +54,72 @@ function SpeakerPrompt({ state, dispatch }) {
             </button>
           )
         })}
+      </div>
+    </Modal>
+  )
+}
+
+/**
+ * Imperial as printed: score one public objective you have fulfilled, then
+ * take a point if you hold Mecatol Rex. Both halves are optional, and both are
+ * gathered here before anything is applied, so the card resolves in one move
+ * rather than firing the end-of-game prompt halfway through itself.
+ */
+function ImperialPrompt({ state, dispatch }) {
+  const seat = activeSeat(state)
+  const [objectiveId, setObjectiveId] = useState('')
+  const [mecatol, setMecatol] = useState(false)
+
+  // Imperial sits outside the status phase, so its one-public-a-phase limit
+  // does not apply — only "you cannot score the same card twice".
+  const open = state.revealedObjectives
+    .map(objectiveById)
+    .filter((o) => o && !scorersOf(state, o.id).includes(seat))
+
+  const gain = (objectiveId ? pointsFor(objectiveById(objectiveId)) : 0) + (mecatol ? 1 : 0)
+
+  return (
+    <Modal title="Imperial">
+      <p className="modal__body">
+        Score 1 public objective you have fulfilled, then gain 1 victory point if
+        you control Mecatol Rex. Either half can be skipped.
+      </p>
+
+      <select
+        className="select imperial__select"
+        value={objectiveId}
+        onChange={(e) => setObjectiveId(e.target.value)}
+      >
+        <option value="">Score no public objective</option>
+        {open.map((o) => (
+          <option key={o.id} value={o.id}>
+            Stage {o.stage} · {o.name} - {o.description}
+          </option>
+        ))}
+      </select>
+
+      <label className="imperial__check">
+        <input
+          type="checkbox"
+          checked={mecatol}
+          onChange={(e) => setMecatol(e.target.checked)}
+        />
+        I control Mecatol Rex (+1 VP)
+      </label>
+
+      <div className="endprompt__actions">
+        <span className="imperial__total">
+          {gain ? `+${gain} VP` : 'No points from this card'}
+        </span>
+        <button
+          type="button"
+          className="btn btn--primary"
+          onClick={() =>
+            dispatch({ type: 'RESOLVE_IMPERIAL', objectiveId: objectiveId || null, mecatol })
+          }
+        >
+          Resolve Imperial
+        </button>
       </div>
     </Modal>
   )
@@ -153,6 +221,8 @@ export function ActionPhase({ state, dispatch }) {
             </button>
           </div>
           {!state.pendingAction && <p className="hint">Choose an action to confirm it.</p>}
+
+          <VictoryPanel state={state} dispatch={dispatch} activeSeat={seat} />
         </>
       )}
 
@@ -163,6 +233,7 @@ export function ActionPhase({ state, dispatch }) {
       )}
 
       {state.speakerPrompt && <SpeakerPrompt state={state} dispatch={dispatch} />}
+      {state.imperialPrompt && <ImperialPrompt state={state} dispatch={dispatch} />}
     </section>
   )
 }

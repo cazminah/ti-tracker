@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { FactionCrest } from '../components/FactionCrest'
+import { PlayerBox } from '../components/PlayerBox'
 import { HoverTip } from '../components/HoverTip'
 import { Modal } from '../components/Modal'
 import { ObjectiveCardBack } from '../components/ObjectiveCardBack'
@@ -29,34 +30,6 @@ const STEPS = [
   'Repair Units',
   'Return Strategy Cards',
 ]
-
-/** One of the six player boxes: who they are, and the secrets they hold. */
-function PlayerBox({ state, seat, active }) {
-  const player = seatOf(state, seat)
-  const color = colorById(player.color)
-  const faction = factionById(player.factionId)
-  const secrets = (state.secretScores[seat] || []).map(objectiveById).filter(Boolean)
-
-  return (
-    <div
-      className={`objplayer ${active ? 'is-active' : ''}`}
-      style={{ '--pc': color?.hex ?? '#3a3a42' }}
-    >
-      <div className="objplayer__head">
-        <FactionCrest factionId={player.factionId} size={26} />
-        <span className="objplayer__name">{faction?.short ?? `P${seat}`}</span>
-        <span className="objplayer__vp">{state.scores[seat] ?? 0}</span>
-      </div>
-      <div className="objplayer__secrets">
-        {secrets.map((o) => (
-          <HoverTip key={o.id} className="objplayer__secret" tip={objectiveLabel(o)}>
-            {o.name}
-          </HoverTip>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 /** One revealed public objective: what it is, and who has taken it. */
 function ObjectiveBox({ state, objective, seat, onScore }) {

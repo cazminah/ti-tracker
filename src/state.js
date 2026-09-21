@@ -1,5 +1,11 @@
 import { STRATEGY_CARDS, cardById } from './data/strategyCards'
-import { STATUS_SECRETS, pointsFor, objectiveById, stageDeck } from './data/objectives'
+import {
+  ACTION_SECRETS,
+  STATUS_SECRETS,
+  pointsFor,
+  objectiveById,
+  stageDeck,
+} from './data/objectives'
 import { PLAYER_COLORS } from './data/colors'
 import { FACTIONS } from './data/factions'
 import { elapsedSince } from './time'
@@ -46,6 +52,14 @@ export const initialState = () => ({
   statusPublicScored: {},  // seat -> the public objective they took this phase
   statusSecretScored: {},  // seat -> the secret they took this phase
   revealRound: 0,          // the round whose status phase last revealed one
+
+  // --- action phase victory points ----------------------------------------
+  custodiansSeat: null,    // who took Mecatol Rex; settles for good once their turn ends
+  custodiansTurn: null,    // the turn it was taken on, so that turn can still undo it
+  shardSeat: null,         // who holds the Shard of the Throne, which can be stolen
+  supports: {},            // giver seat -> the seat holding their Support for the Throne
+  turnSeq: 0,              // monotonic turn counter; only the custodians lock reads it
+  imperialPrompt: false,   // Imperial's strategy action is mid-resolution
 })
 
 /** Slots in each row: 2 stage I at setup, then one card a round after that. */
@@ -145,6 +159,36 @@ export function availableSecrets(state) {
 /** Seats that have scored `objectiveId`, in seat order. */
 export const scorersOf = (state, objectiveId) => state.objectiveScorers[objectiveId] || []
 
+/** The secrets a seat holds, oldest first, as objectives rather than ids. */
+export const secretsOf = (state, seat) =>
+  (state.secretScores?.[seat] || []).map(objectiveById).filter(Boolean)
+
+/**
+ * Action-phase secrets nobody has taken yet. Unlike the status phase there is
+ * no per-turn limit, and they can be scored on somebody else's turn, so the
+ * only thing ruled out is a secret that is already gone.
+ */
+export function availableActionSecrets(state) {
+  const taken = new Set(Object.values(state.secretScores || {}).flat())
+  return ACTION_SECRETS.filter((o) => !taken.has(o.id)).filter(inPlay(state))
+}
+
+/** Giver seats whose Support for the Throne is still theirs to hand out. */
+export const unspentSupports = (state) =>
+  SEATS.filter((seat) => state.supports?.[seat] == null)
+
+/** [giverSeat, ...] for the notes a seat is holding — one victory point each. */
+export const supportsHeldBy = (state, seat) =>
+  SEATS.filter((giver) => state.supports?.[giver] === seat)
+
+/**
+ * Whether the custodians token can still be moved. It is a one-off: the first
+ * player to Mecatol Rex takes it and that is that, so it stays editable only
+ * for the turn it was taken on, to undo a misclick.
+ */
+export const custodiansOpen = (state) =>
+  state.custodiansSeat == null || state.custodiansTurn === state.turnSeq
+
 /**
  * Seconds a seat has spent on its turns, including the clock still running if
  * it is their turn right now. Callers that want it to visibly tick re-render
@@ -208,6 +252,12 @@ const enterStatus = (state) => ({
  * `before` so cancelling undoes the move completely — for an objective that
  * means the point *and* the faction icon that came with it, not just the point.
  */
+/** Move a seat's points with no end-of-game check — for the seat losing one. */
+const bumpVP = (state, seat, delta) => ({
+  ...state,
+  scores: { ...state.scores, [seat]: Math.max(0, (state.scores[seat] || 0) + delta) },
+})
+
 function withVP(before, after, seat, delta) {
   const prev = before.scores[seat] || 0
   const next = Math.max(0, prev + delta)
@@ -224,11 +274,17 @@ function advanceTurn(state, actingSeat) {
     const idx = (state.turnIndex + i) % order.length
     if (!state.passed.includes(order[idx])) {
       // Straight handoff: the next player's clock starts the instant this one stops.
-      return { ...banked, turnIndex: idx, pendingAction: null, turnStartedAt: Date.now() }
+      return {
+        ...banked,
+        turnIndex: idx,
+        pendingAction: null,
+        turnStartedAt: Date.now(),
+        turnSeq: state.turnSeq + 1,
+      }
     }
   }
   // Nobody left to act — the round's action phase is over.
-  return enterStatus({ ...banked, pendingAction: null })
+  return enterStatus({ ...banked, pendingAction: null, turnSeq: state.turnSeq + 1 })
 }
 
 // ------------------------------------------------------------- dev helpers
@@ -339,6 +395,7 @@ export function reducer(state, action) {
         draftLog: { ...state.draftLog, [state.round]: { ...state.picks } },
         initiativeSeats: initiativeOrder(state.picks),
         turnStartedAt: Date.now(),
+        turnSeq: state.turnSeq + 1,
       }
     }
 
@@ -353,8 +410,10 @@ export function reducer(state, action) {
       if (state.pendingAction === 'strategy') {
         const next = { ...state, exhausted: [...state.exhausted, card.id] }
         // Politics hands the speaker token to another player before the turn
-        // ends — and it is still their turn, so their clock keeps running.
+        // ends, and Imperial scores off the card — both before the turn is
+        // over, so in each case their clock keeps running behind the prompt.
         if (card.id === 'politics') return { ...next, speakerPrompt: true }
+        if (card.id === 'imperial') return { ...next, imperialPrompt: true }
         return advanceTurn(next, seat)
       }
 
@@ -402,6 +461,121 @@ export function reducer(state, action) {
         resumeScreen: null,
         turnStartedAt: running ? Date.now() : null,
       }
+    }
+
+    /**
+     * Imperial, as printed: score one public objective you have fulfilled,
+     * then take a point if you hold Mecatol Rex. Both halves are optional and
+     * the prompt gathers them in one go, so this applies them and ends the turn.
+     */
+    case 'RESOLVE_IMPERIAL': {
+      const seat = activeSeat(state)
+      if (seat == null || !state.imperialPrompt) return state
+      let next = { ...state, imperialPrompt: false }
+
+      const objective = objectiveById(action.objectiveId)
+      // Imperial is not the status phase, so this is free of the one-public
+      // limit — but an objective still cannot be scored twice by one player.
+      if (objective && state.revealedObjectives.includes(objective.id)) {
+        const scorers = scorersOf(state, objective.id)
+        if (!scorers.includes(seat)) {
+          next = bumpVP(
+            { ...next, objectiveScorers: { ...next.objectiveScorers, [objective.id]: [...scorers, seat] } },
+            seat,
+            pointsFor(objective)
+          )
+        }
+      }
+      if (action.mecatol) next = bumpVP(next, seat, 1)
+
+      // The whole resolution is one move, so the end-of-game check runs once
+      // over the total rather than firing halfway through the card.
+      const gained = (next.scores[seat] || 0) - (state.scores[seat] || 0)
+      const scored = withVP(state, next, seat, gained)
+      return scored.endPrompt ? scored : advanceTurn(scored, seat)
+    }
+
+    // ------------------------------------------------- action phase victory points
+
+    /**
+     * The custodians token. Whoever clears Mecatol Rex first takes it and
+     * keeps it for the game; it stays undoable only while that turn lasts.
+     */
+    case 'TAKE_CUSTODIANS': {
+      const seat = activeSeat(state)
+      if (seat == null || !custodiansOpen(state)) return state
+      if (state.custodiansSeat === seat) {
+        return bumpVP({ ...state, custodiansSeat: null, custodiansTurn: null }, seat, -1)
+      }
+      return withVP(
+        state,
+        { ...state, custodiansSeat: seat, custodiansTurn: state.turnSeq },
+        seat,
+        1
+      )
+    }
+
+    /**
+     * The Shard of the Throne, which unlike the custodians token moves: taking
+     * it off whoever holds it costs them the point it was carrying.
+     */
+    case 'TAKE_SHARD': {
+      const seat = activeSeat(state)
+      if (seat == null) return state
+      const holder = state.shardSeat
+      if (holder === seat) return bumpVP({ ...state, shardSeat: null }, seat, -1)
+      const robbed = holder == null ? state : bumpVP(state, holder, -1)
+      return withVP(state, { ...robbed, shardSeat: seat }, seat, 1)
+    }
+
+    /** A secret scored off a tactical or component action, on anyone's turn. */
+    case 'SCORE_ACTION_SECRET': {
+      const { seat, objectiveId } = action
+      if (seat == null || !objectiveId) return state
+      if (!availableActionSecrets(state).some((o) => o.id === objectiveId)) return state
+      return withVP(state, {
+        ...state,
+        secretScores: {
+          ...state.secretScores,
+          [seat]: [...(state.secretScores[seat] || []), objectiveId],
+        },
+      }, seat, 1)
+    }
+
+    case 'UNSCORE_ACTION_SECRET': {
+      const { seat, objectiveId } = action
+      if (!(state.secretScores[seat] || []).includes(objectiveId)) return state
+      // Also let go of the status phase's hold on it, in case that is where it
+      // came from — otherwise its Undo would be left pointing at nothing.
+      const statusSecretScored = { ...state.statusSecretScored }
+      if (statusSecretScored[seat] === objectiveId) delete statusSecretScored[seat]
+      return withVP(state, {
+        ...state,
+        secretScores: {
+          ...state.secretScores,
+          [seat]: state.secretScores[seat].filter((id) => id !== objectiveId),
+        },
+        statusSecretScored,
+      }, seat, -1)
+    }
+
+    /**
+     * Support for the Throne. Each player owns exactly one note and it is
+     * worth a point to whoever is holding it — never to the player who owns it.
+     */
+    case 'GIVE_SUPPORT': {
+      const { giver, holder } = action
+      if (giver == null || holder == null || giver === holder) return state
+      if (state.supports[giver] != null) return state
+      return withVP(state, { ...state, supports: { ...state.supports, [giver]: holder } }, holder, 1)
+    }
+
+    case 'REVOKE_SUPPORT': {
+      const holder = state.supports[action.giver]
+      if (holder == null) return state
+      const supports = { ...state.supports }
+      delete supports[action.giver]
+      return bumpVP({ ...state, supports }, holder, -1)
     }
 
     // ------------------------------------------------------------ objectives

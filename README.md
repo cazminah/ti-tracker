@@ -18,7 +18,7 @@ The app walks one round at a time through:
 | --- | --- |
 | **Game Setup** | Colour + faction per seat, 1–6 clockwise. Colours and factions can't be double-picked. Victory point target, and the two opening stage I objectives are all set here. |
 | **Strategy Phase** | Draft in clockwise order from the speaker, two rows of four. A card goes out of the pool once taken. |
-| **Action Phase** | Initiative tiles in order; turns follow it. Strategy / tactical / pass, each behind a confirm. |
+| **Action Phase** | Initiative tiles in order; turns follow it. Strategy / tactical / pass, each behind a confirm, plus a panel for the five ways a point changes hands mid-phase. |
 | **Status Phase** | The eight status-phase steps, then objective scoring in initiative order. |
 | **Agenda Phase** | The agenda steps plus a vote box per player, ordered from the speaker's left. |
 | **End of Game** | Final standings, time per player, and the full draft history. |
@@ -95,8 +95,55 @@ carries the rest:
   it pops the full `Name - description` up at the cursor. One secret per
   player per phase.
 
-The action- and agenda-phase secrets are in the data file but not yet wired to
-a screen.
+## Victory points in the action phase
+
+Points move around mid-phase in five ways, and **Score Victory Points** — a
+disclosure below the action choices, shut by default because most turns need
+none of it — covers four of them. The fifth, Imperial, belongs to its card.
+
+Two different players are in play in that panel, deliberately. The custodians
+token and the Shard are things the player *whose turn it is* does. Secrets and
+Support for the Throne can change hands on anybody's turn, so those run off a
+seat picked out of the row of six — which starts on the active player and
+returns to them when the turn moves on. The banner says **off turn** when the
+two have come apart.
+
+- **The custodians token.** Mecatol Rex, drawn as a system tile. Clicking it
+  gives the active player the token and a point, and crests the tile in their
+  colour; clicking again takes both back. It is a one-off, so it stays
+  editable only for the turn it was taken on and is locked out for the rest of
+  the game after that.
+- **The Shard of the Throne.** Same click-to-claim, but it moves: taking it
+  off whoever holds it costs them the point it was carrying and hands it to
+  the taker, however many times it changes hands.
+- **Action-phase secrets.** A drop-down of the twelve action-type secrets
+  nobody has taken, scored against whichever seat is picked — no per-turn
+  limit, unlike the status phase, because they fire off combats and actions
+  rather than off the round. Each one the player holds appears below the
+  banner with an undo. The box shows a count against the 3-a-game limit;
+  nothing blocks a fourth, because The Obsidian exists.
+- **Support for the Throne.** Each player owns one note, worth a point to
+  whoever holds it and nothing to its owner. Picking a giver from the
+  drop-down hands their note to the picked seat and greys that giver out for
+  everyone, since they only have the one. Clicking the **Support from X** chip
+  in a player box hands it back: the holder loses the point and X can give it
+  again.
+- **Imperial.** Confirming its strategy action opens the card: score one
+  revealed public objective you have fulfilled, then take a point if you hold
+  Mecatol Rex. Both halves are optional and both are gathered before anything
+  is applied, so the card resolves as one move. The public objective scored
+  this way does not count against the one-public-a-status-phase limit — a
+  different phase, a different rule.
+
+The agenda-phase secrets are in the data file but not yet wired to a screen.
+
+## Artwork
+
+Faction crests, strategy cards and the two victory-point tokens all go through
+`FallbackImage`: local files first, then the wiki CDN, then something drawn in
+SVG. Drop a file in to override the drawing —
+`public/assets/factions/<id>.png`, `public/assets/cards/<id>.png`, or
+`public/assets/tokens/mecatol-rex.png` and `shard-of-the-throne.png`.
 
 ## The developer bar
 

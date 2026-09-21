@@ -116,6 +116,12 @@ export const STATUS_SECRETS = SECRETS.filter(
   (o) => o.type !== 'action' && o.type !== 'agenda'
 )
 
+/** Secrets scored off the back of something done during the action phase. */
+export const ACTION_SECRETS = SECRETS.filter((o) => o.type === 'action')
+
+/** Secrets a player may hold, before The Obsidian raises it to four. */
+export const SECRET_LIMIT = 3
+
 const BY_ID = Object.fromEntries(OBJECTIVES.map((o) => [o.id, o]))
 
 export const objectiveById = (id) => BY_ID[id] ?? null
