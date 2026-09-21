@@ -180,13 +180,25 @@ export function StatusPhase({ state, dispatch }) {
       )}
 
       <div className="screen__actions">
-        <button
-          type="button"
-          className="btn btn--primary"
-          onClick={() => dispatch({ type: 'GOTO', screen: 'agenda' })}
-        >
-          Agenda Phase →
-        </button>
+        {/* No agenda phase until somebody has taken the custodians token. */}
+        {state.custodiansSeat != null ? (
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={() => dispatch({ type: 'GOTO', screen: 'agenda' })}
+          >
+            Agenda Phase →
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="btn btn--primary"
+            title="The agenda phase starts once the custodians token has been taken."
+            onClick={() => dispatch({ type: 'NEW_ROUND' })}
+          >
+            NEW ROUND →
+          </button>
+        )}
       </div>
     </section>
   )

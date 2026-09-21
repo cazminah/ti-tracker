@@ -539,20 +539,156 @@ button.stratcard:not(:disabled):hover {
 .steplist--agenda { font-size: 16px; line-height: 1.8; }
 .steplist__sub { list-style: none; margin: 4px 0 10px; padding-left: 34px; font-size: 14px; color: var(--ink-dim); }
 
-.votes { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+/* All six on one row, in voting order. */
+.influence { display: grid; gap: 8px; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+/* Two rows of three once six across would squash the names. */
+@media (max-width: 1000px) { .influence { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .vote {
-  display: flex; align-items: center; gap: 9px; padding: 10px 12px;
+  display: flex; align-items: center; gap: 7px; padding: 9px 10px; min-width: 0;
   border: 1px solid var(--line); border-left: 4px solid var(--pc);
   border-radius: var(--radius); background: var(--panel);
 }
 .vote__order { width: 16px; color: var(--ink-dim); font-size: 12px; }
-.vote__name { font-weight: 600; }
+.vote__name {
+  display: flex; flex-direction: column; min-width: 0; line-height: 1.15;
+  font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.vote__speaker { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
+.vote.is-now { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(216, 184, 106, .45); }
+.vote__left { margin-left: auto; font-size: 22px; font-weight: 700; line-height: 1; white-space: nowrap; }
+.vote__left small { font-size: 12px; font-weight: 600; color: var(--ink-dim); margin-left: 1px; }
 .vote__input {
-  margin-left: auto; width: 66px; padding: 7px 8px; text-align: center;
+  margin-left: auto; width: 54px; flex: none; padding: 7px 4px; text-align: center;
   font-size: 17px; font-weight: 700;
   border: 1px solid var(--line); border-radius: 8px;
   background: var(--panel2); color: var(--ink);
 }
+
+.screen__actions--tight { margin-top: 12px; }
+
+/* --- agenda phase: one section per agenda --- */
+
+.agenda {
+  margin-top: 22px; padding: 4px 18px 16px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: rgba(255, 255, 255, .02);
+}
+.agenda__top { display: flex; align-items: center; gap: 16px; margin: 14px 0 0; }
+.agenda__title { margin: 0; flex: none; }
+.agenda__select { flex: 1; min-width: 0; }
+.agenda__body {
+  display: grid; gap: 16px; align-items: start; margin-top: 16px;
+  grid-template-columns: 280px minmax(0, 1fr);
+}
+@media (max-width: 800px) { .agenda__body { grid-template-columns: 1fr; } }
+.agenda__foot { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.agenda__total { margin: 0 0 0 auto; }
+
+.agendacard { min-height: 200px; }
+.agendacard__kind {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim);
+}
+.agendacard__type { padding: 2px 8px; border-radius: 999px; color: #10121a; }
+.agendacard__type--law { background: #d8b86a; }
+.agendacard__type--directive { background: #8fb6e8; }
+.agendacard__name { font-size: 18px; }
+.agendacard__desc { display: flex; flex-direction: column; gap: 8px; font-size: 13px; white-space: pre-line; }
+.agendacard__part { padding: 6px 8px; margin: 0 -8px; border-radius: 6px; transition: background 160ms ease, color 160ms ease; }
+.agendacard__part.is-won { background: rgba(216, 184, 106, .18); color: var(--ink); box-shadow: inset 3px 0 0 var(--gold); }
+.agendacard__part.is-lost { opacity: .45; }
+.agendacard__part b { color: var(--ink); }
+.agendacard__elected {
+  margin-top: auto; padding-top: 8px; border-top: 1px solid var(--line);
+  font-weight: 700; color: var(--gold);
+}
+.agenda.is-resolved .agendacard { border-color: rgba(216, 184, 106, .6); }
+
+.agendaopts { display: flex; flex-direction: column; gap: 10px; }
+.agendaopts__empty { margin: 0; color: var(--ink-dim); font-size: 14px; }
+.agendaopts__grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.agendaopts__grid--for-against { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.agendaopts__grid--player { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.agendaopts__grid--strategy { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.agendaopts__add { display: flex; gap: 8px; max-width: 420px; }
+.agendaopts__add .select { flex: 1; min-width: 0; }
+
+.agendaopt {
+  --oc: var(--line);
+  position: relative; display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 12px; min-height: 120px;
+  border: 1px solid var(--line); border-top: 4px solid var(--oc); border-radius: var(--radius);
+  background: var(--panel);
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease, opacity 160ms ease;
+}
+.agendaopt.is-live { cursor: pointer; }
+.agendaopt.is-live:hover { transform: translateY(-2px); border-color: var(--gold); border-top-color: var(--oc); }
+.agendaopt.is-mine {
+  border-color: var(--gold); box-shadow: 0 0 0 1px rgba(216, 184, 106, .5);
+  /* Room for the vote box on the right, so it covers nothing. */
+  padding-right: 96px;
+}
+.agendaopt.is-tied { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(216, 184, 106, .35); }
+.agendaopt.is-won { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold), 0 0 22px -4px rgba(216, 184, 106, .7); }
+.agendaopt.is-lost { opacity: .5; }
+.agendaopt__head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.agendaopt__label { font-weight: 700; line-height: 1.2; min-width: 0; overflow-wrap: anywhere; }
+.agendaopt__sub { font-size: 12px; color: var(--ink-dim); }
+.agendaopt__remove {
+  margin-left: auto; flex: none; width: 22px; height: 22px; padding: 0; line-height: 1;
+  border: 1px solid var(--line); border-radius: 50%; background: transparent; color: var(--ink-dim); cursor: pointer;
+}
+.agendaopt__remove:hover { color: var(--ink); border-color: var(--ink-dim); }
+.agendaopt__total { font-size: 36px; font-weight: 700; line-height: 1; margin-top: auto; }
+
+.votepills { display: flex; flex-wrap: wrap; gap: 4px; min-height: 24px; }
+.votepill {
+  display: inline-flex; align-items: center; gap: 3px; height: 24px; padding: 0 8px 0 3px;
+  border-radius: 999px; font-size: 13px; font-weight: 700;
+}
+
+/* The active voter's own vote, sat on the right of the option they chose. */
+.agendaopt__mine {
+  position: absolute; top: 50%; right: 10px; transform: translateY(-50%);
+  display: flex; padding: 5px;
+  border: 1px solid var(--gold); border-radius: 8px;
+  background: var(--panel2);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .5);
+  cursor: default;
+}
+
+.stepper { display: inline-flex; align-items: stretch; }
+.stepper__input {
+  width: 52px; padding: 5px 4px; text-align: center; font-size: 18px; font-weight: 700;
+  border: 1px solid var(--line); border-right: 0; border-radius: 8px 0 0 8px;
+  background: var(--panel2); color: var(--ink);
+  -moz-appearance: textfield;
+}
+.stepper__input::-webkit-inner-spin-button,
+.stepper__input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.stepper__arrows { display: flex; flex-direction: column; }
+.stepper__arrows button {
+  flex: 1; width: 24px; padding: 0; font-size: 9px; line-height: 1;
+  border: 1px solid var(--line); background: var(--panel2); color: var(--ink-dim); cursor: pointer;
+}
+.stepper__arrows button:first-child { border-radius: 0 8px 0 0; border-bottom: 0; }
+.stepper__arrows button:last-child { border-radius: 0 0 8px 0; }
+.stepper__arrows button:hover:not(:disabled) { background: #283049; color: var(--ink); }
+.stepper__arrows button:disabled { opacity: .35; cursor: not-allowed; }
+
+.votebanner { margin: 16px 0 0; }
+.votebanner__left { display: flex; align-items: baseline; gap: 6px; flex: none; }
+.turnbanner .votebanner__left strong { font-size: 36px; font-weight: 700; line-height: 1.1; color: var(--ink); }
+.votebanner__left span, .votebanner__extra span { font-size: 15px; }
+/* Pinned to the banner's right-hand end, so it sits still from player to player. */
+.votebanner__extra { display: flex; align-items: center; gap: 10px; flex: none; margin-left: auto; }
+.turnbanner .votebanner__plus { font-size: 36px; font-weight: 700; line-height: 1; color: var(--ink); }
+.votebanner__note { color: var(--ink); font-size: 15px; }
+.votebanner__actions { display: flex; gap: 8px; margin-left: auto; color: var(--ink); }
+
+/* Darker than the shared primary so white text reads clearly on it. */
+.btn--cast { background: #2a55b8; border-color: #5a86e6; color: #fff; min-width: 150px; }
+.btn--cast:hover:not(:disabled) { background: #3263cf; }
 
 /* ------------------------------------------------------------------- toast */
 

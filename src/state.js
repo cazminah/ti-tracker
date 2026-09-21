@@ -8,6 +8,7 @@ import {
 } from './data/objectives'
 import { PLAYER_COLORS } from './data/colors'
 import { FACTIONS, factionById } from './data/factions'
+import { agendaById } from './data/agendas'
 import { elapsedSince } from './time'
 
 export const SEATS = [1, 2, 3, 4, 5, 6]
@@ -32,7 +33,6 @@ export const initialState = () => ({
   pendingAction: null,// 'strategy' | 'tactical' | 'pass', awaiting confirmation
   speakerPrompt: false,
   scores: zeroed(),
-  votes: zeroed(),
   vpTarget: 10,       // victory points that trigger the end-of-game prompt
   vpCustom: false,    // whether the target is being typed rather than picked
   excludedSets: [],   // set ids ('base', 'PoK', 'C.III') left out of the decks
@@ -61,7 +61,35 @@ export const initialState = () => ({
   turnSeq: 0,              // monotonic turn counter; only the custodians lock reads it
   imperialPrompt: false,   // Imperial's strategy action is mid-resolution
   imperialPoints: {},      // seat -> Mecatol Rex points taken off Imperial, for the tally
+
+  // --- agenda phase -------------------------------------------------------
+  influence: zeroed(),     // seat -> votes to spend across this agenda phase
+  influenceLocked: false,  // set once the table has agreed the numbers
+  agendas: [],             // this phase's agendas, in reveal order; see newAgenda
+  lawsInPlay: [],          // { agendaId, outcome } for each law enacted, oldest first
+  playedAgendas: [],       // agenda ids from earlier rounds' phases, i.e. out of the deck
 })
+
+/**
+ * One agenda on the table. `votes` holds each seat's single choice as
+ * { option, count }; `extra` the votes a seat has from somewhere other than
+ * its influence (abilities, action cards) for this agenda only. `voterIndex`
+ * walks the voting order; reaching its end with no clear winner leaves the
+ * speaker to break the tie. `lawsBefore` is what the laws were before this
+ * one resolved, so Back can put them back.
+ */
+const newAgenda = () => ({
+  agendaId: null,
+  options: [],        // typed-in outcomes, for planet and Covert Legislation cards
+  votes: {},
+  extra: {},
+  voterIndex: 0,
+  outcome: null,
+  lawsBefore: null,
+})
+
+/** How many agendas are revealed in an agenda phase. */
+export const AGENDAS_PER_PHASE = 2
 
 /** Slots in each row: 2 stage I at setup, then one card a round after that. */
 export const PUBLIC_SLOTS = 5
@@ -275,6 +303,137 @@ export function standings(state) {
     (a, b) =>
       (state.scores[b] || 0) - (state.scores[a] || 0) || tiebreak(a) - tiebreak(b)
   )
+}
+
+// ------------------------------------------------------------ agenda phase
+
+/** Voting order: clockwise from the speaker's left, so the speaker votes last. */
+export const votingOrder = (state) => seatOrderFrom((state.speakerSeat % SEATS.length) + 1)
+
+/** The agenda being voted on or just resolved, i.e. the newest one. */
+export const currentAgenda = (state) => state.agendas.at(-1) ?? null
+
+/**
+ * Where a vote of `count` comes from, given `base` influence and `extra`
+ * votes: the first from influence, then every extra vote, and only then more
+ * influence. A seat with no influence left votes out of its extras alone.
+ */
+export function voteSplit(count, base, extra) {
+  if (count <= 0) return { base: 0, extra: 0 }
+  const first = base > 0 ? 1 : 0
+  const fromExtra = Math.min(extra, count - first)
+  return { base: count - fromExtra, extra: fromExtra }
+}
+
+/**
+ * Influence `seat` had going into each of this phase's agendas, plus what is
+ * left after the last — influence spent on one is gone for the next.
+ */
+function influenceTrail(state, seat) {
+  const trail = [state.influence[seat] || 0]
+  for (const item of state.agendas) {
+    const before = trail.at(-1)
+    const v = item.votes[seat]
+    const spent = v ? voteSplit(v.count, before, item.extra[seat] || 0).base : 0
+    trail.push(Math.max(0, before - spent))
+  }
+  return trail
+}
+
+/** Influence `seat` has left to vote with, after everything cast so far. */
+export const influenceLeft = (state, seat) => influenceTrail(state, seat).at(-1)
+
+/**
+ * The most `seat` can put on the current agenda: the influence it came into
+ * this agenda with, plus its extra votes here.
+ */
+export function votePool(state, seat) {
+  const item = currentAgenda(state)
+  const base = influenceTrail(state, seat).at(-2) ?? 0
+  const extra = item?.extra[seat] || 0
+  return { base, extra, max: base + extra }
+}
+
+/**
+ * A seat's vote on the agenda at `index`, split into what came from influence
+ * and what from extra votes — or null if they didn't vote on it.
+ */
+export function voteParts(state, index, seat) {
+  const item = state.agendas[index]
+  const v = item?.votes[seat]
+  if (!v) return null
+  return voteSplit(v.count, influenceTrail(state, seat)[index], item.extra[seat] || 0)
+}
+
+/** Extra votes `seat` has not yet put on the current agenda. */
+export function extraLeft(state, seat) {
+  const item = currentAgenda(state)
+  if (!item) return 0
+  const { base, extra } = votePool(state, seat)
+  return extra - voteSplit(item.votes[seat]?.count || 0, base, extra).extra
+}
+
+/** The seat choosing right now, or null when nobody is. */
+export function activeVoter(state) {
+  const item = currentAgenda(state)
+  if (!item?.agendaId || item.outcome) return null
+  return votingOrder(state)[item.voterIndex] ?? null
+}
+
+/** option -> total votes on it. */
+export function voteTotals(item) {
+  const totals = {}
+  for (const v of Object.values(item.votes)) totals[v.option] = (totals[v.option] || 0) + v.count
+  return totals
+}
+
+/**
+ * The joint leaders, once everyone has voted and nothing has won outright —
+ * or null if there's no tie to break. With no votes cast at all, every
+ * option is in it (shown to the caller as an empty list).
+ */
+function tiedLeaders(item) {
+  const totals = voteTotals(item)
+  const top = Math.max(0, ...Object.values(totals))
+  if (top === 0) return []
+  const leaders = Object.keys(totals).filter((k) => totals[k] === top)
+  return leaders.length > 1 ? leaders : null
+}
+
+/**
+ * Options the speaker must choose between, or null if they needn't. An empty
+ * list means nobody voted, so any option will do.
+ */
+export function speakerMustChoose(item) {
+  if (!item || item.outcome || item.voterIndex < SEATS.length) return null
+  return tiedLeaders(item)
+}
+
+/**
+ * Laws in play after `agenda` resolves to `outcome`. A law goes into play on
+ * For, or on any election; Judicial Abolishment, and New Constitution if it
+ * passes, take them out again.
+ */
+function lawsAfter(laws, agenda, outcome) {
+  if (agenda.id === 'judicial-abolishment') return laws.filter((l) => l.agendaId !== outcome)
+  if (agenda.id === 'new-constitution' && outcome === 'for') return []
+  if (agenda.type !== 'Law') return laws
+  if (agenda.kind === 'for-against' && outcome !== 'for') return laws
+  return [...laws.filter((l) => l.agendaId !== agenda.id), { agendaId: agenda.id, outcome }]
+}
+
+/** The state with the newest agenda patched. */
+const patchAgenda = (state, patch) => ({
+  ...state,
+  agendas: [...state.agendas.slice(0, -1), { ...currentAgenda(state), ...patch }],
+})
+
+function resolveAgenda(state, outcome) {
+  const agenda = agendaById(currentAgenda(state).agendaId)
+  return {
+    ...patchAgenda(state, { outcome, lawsBefore: state.lawsInPlay }),
+    lawsInPlay: lawsAfter(state.lawsInPlay, agenda, outcome),
+  }
 }
 
 // ------------------------------------------------------------------ reducer
@@ -731,8 +890,130 @@ export function reducer(state, action) {
       return { ...state, statusSeatIndex: Math.min(max, Math.max(0, next)) }
     }
 
-    case 'SET_VOTES':
-      return { ...state, votes: { ...state.votes, [action.seat]: action.value } }
+    // ----------------------------------------------------------- agenda phase
+
+    case 'SET_INFLUENCE':
+      if (state.influenceLocked) return state
+      return { ...state, influence: { ...state.influence, [action.seat]: Math.max(0, action.value) } }
+
+    case 'LOCK_INFLUENCE':
+      return {
+        ...state,
+        influenceLocked: true,
+        agendas: state.agendas.length ? state.agendas : [newAgenda()],
+      }
+
+    case 'UNLOCK_INFLUENCE': {
+      // Only while nothing has been cast against the numbers being changed.
+      const cast = state.agendas.some((a) => a.voterIndex > 0 || Object.keys(a.votes).length)
+      if (cast) return state
+      return { ...state, influenceLocked: false, agendas: [] }
+    }
+
+    case 'PICK_AGENDA': {
+      const item = currentAgenda(state)
+      if (!item || item.voterIndex > 0 || Object.keys(item.votes).length) return state
+      return patchAgenda(state, { ...newAgenda(), agendaId: action.agendaId || null })
+    }
+
+    case 'ADD_AGENDA_OPTION': {
+      const item = currentAgenda(state)
+      const label = action.label.trim()
+      if (!item || item.outcome || !label) return state
+      if (item.options.some((o) => o.toLowerCase() === label.toLowerCase())) return state
+      return patchAgenda(state, { options: [...item.options, label] })
+    }
+
+    case 'REMOVE_AGENDA_OPTION': {
+      // A typo can go, so long as nobody has voted for it.
+      const item = currentAgenda(state)
+      const key = `x:${action.label}`
+      if (!item || item.outcome || Object.values(item.votes).some((v) => v.option === key)) return state
+      return patchAgenda(state, { options: item.options.filter((o) => o !== action.label) })
+    }
+
+    /**
+     * The active voter clicks an option: one vote on it, moving their whole
+     * vote over if it was on something else, or one more if it was already there.
+     */
+    case 'CAST_VOTE': {
+      const seat = activeVoter(state)
+      if (seat == null) return state
+      const item = currentAgenda(state)
+      const { max } = votePool(state, seat)
+      const mine = item.votes[seat]
+      const count = Math.min(max, mine?.option === action.option ? mine.count + 1 : 1)
+      if (count <= 0) return state
+      return patchAgenda(state, { votes: { ...item.votes, [seat]: { option: action.option, count } } })
+    }
+
+    case 'SET_VOTE_COUNT': {
+      const seat = activeVoter(state)
+      const item = currentAgenda(state)
+      const mine = seat != null && item.votes[seat]
+      if (!mine) return state
+      const count = Math.min(votePool(state, seat).max, Math.max(0, action.count))
+      const votes = { ...item.votes }
+      if (count > 0) votes[seat] = { ...mine, count }
+      else delete votes[seat]
+      return patchAgenda(state, { votes })
+    }
+
+    /**
+     * The extra-votes box shows what is still unspent, and `value` is what it
+     * was set to. With no option chosen that simply sets the pool, to be drawn
+     * on in the usual order. Once an option is chosen, anything added goes
+     * straight onto it — the box stays where it was and the vote grows —
+     * while taking some away only ever takes from the unspent ones.
+     */
+    case 'SET_EXTRA_VOTES': {
+      const seat = activeVoter(state)
+      if (seat == null) return state
+      const item = currentAgenda(state)
+      const extra = item.extra[seat] || 0
+      const delta = Math.max(0, action.value) - extraLeft(state, seat)
+      if (!delta) return state
+      const mine = item.votes[seat]
+      const next = patchAgenda(state, { extra: { ...item.extra, [seat]: Math.max(0, extra + delta) } })
+      if (!mine || delta < 0) return next
+      return patchAgenda(next, {
+        votes: { ...item.votes, [seat]: { ...mine, count: mine.count + delta } },
+      })
+    }
+
+    /** The active voter is done. After the speaker, the agenda resolves. */
+    case 'NEXT_VOTER': {
+      if (activeVoter(state) == null) return state
+      const item = currentAgenda(state)
+      const next = patchAgenda(state, { voterIndex: item.voterIndex + 1 })
+      if (item.voterIndex + 1 < SEATS.length) return next
+      // A tie, or no votes at all, waits on the speaker — see BREAK_TIE.
+      const totals = voteTotals(item)
+      const top = Math.max(0, ...Object.values(totals))
+      const leaders = Object.keys(totals).filter((k) => totals[k] === top)
+      return top > 0 && leaders.length === 1 ? resolveAgenda(next, leaders[0]) : next
+    }
+
+    case 'BREAK_TIE': {
+      const item = currentAgenda(state)
+      if (speakerMustChoose(item) == null) return state
+      return resolveAgenda(state, action.option)
+    }
+
+    /** Hand the vote back one player, un-resolving the agenda if it had. */
+    case 'PREVIOUS_VOTER': {
+      const item = currentAgenda(state)
+      if (!item || item.voterIndex === 0) return state
+      return {
+        ...patchAgenda(state, { voterIndex: item.voterIndex - 1, outcome: null, lawsBefore: null }),
+        lawsInPlay: item.outcome ? item.lawsBefore : state.lawsInPlay,
+      }
+    }
+
+    case 'REVEAL_NEXT_AGENDA': {
+      if (!currentAgenda(state)?.outcome || state.agendas.length >= AGENDAS_PER_PHASE) return state
+      return { ...state, agendas: [...state.agendas, newAgenda()] }
+    }
 
     case 'GOTO': {
       // Leaving the action phase by any other door stops the clock.
@@ -753,7 +1034,15 @@ export function reducer(state, action) {
         passed: [],
         turnIndex: 0,
         pendingAction: null,
-        votes: zeroed(),
+        influence: zeroed(),
+        influenceLocked: false,
+        agendas: [],
+        // Played agendas go to the discard, out of the deck for good (short
+        // of a reshuffle, which is left to the drop-down).
+        playedAgendas: [
+          ...(state.playedAgendas || []),
+          ...state.agendas.map((a) => a.agendaId).filter(Boolean),
+        ],
         toast: `NEW ROUND: ${state.round + 1}`,
       }
 
