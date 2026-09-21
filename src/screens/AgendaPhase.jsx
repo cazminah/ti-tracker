@@ -104,7 +104,8 @@ function InfluenceRow({ state, dispatch }) {
     <>
       <h2 className="screen__h2">Influence</h2>
       <div className="influence">
-        {order.map((seat, i) => {
+        {/* Left to right is the voting order. */}
+        {order.map((seat) => {
           const player = seatOf(state, seat)
           return (
             <label
@@ -112,7 +113,6 @@ function InfluenceRow({ state, dispatch }) {
               className={`vote ${voter === seat ? 'is-now' : ''}`}
               style={{ '--pc': colorById(player.color).hex }}
             >
-              <span className="vote__order">{i + 1}</span>
               <FactionCrest factionId={player.factionId} size={26} />
               <span className="vote__name">
                 {factionById(player.factionId).short}
