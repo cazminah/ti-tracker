@@ -29,7 +29,7 @@ export const initialState = () => ({
   votes: zeroed(),
   vpTarget: 10,       // victory points that trigger the end-of-game prompt
   vpCustom: false,    // whether the target is being typed rather than picked
-  useCodex3: false,   // include the Codex III objectives in the decks
+  excludedSets: [],   // set ids ('base', 'PoK', 'C.III') left out of the decks
   dev: false,         // the developer bar at the foot of the screen
   timers: zeroed(),   // seat -> seconds banked across every action phase so far
   turnStartedAt: null,// Date.now() when the active player's clock started, else null
@@ -104,11 +104,15 @@ export function scoringSeat(state) {
 }
 
 /**
- * Codex III replaced three secret objectives rather than adding to the deck,
- * and the reference sheet lists the replacements in place of the originals.
- * With the codex switched off at setup those three are simply out of play.
+ * Whether an objective is in the decks for this game.
+ *
+ * Nothing is excluded today: the game is Prophecy of Kings + Codex I–IV and
+ * the sheet's decks already reflect that. It exists as the one seam an
+ * expansion switch can land on later — put a set's id in `excludedSets` and
+ * both the reveal picker and the secret list follow, without either of them
+ * learning what a set is.
  */
-const inPlay = (state) => (o) => state.useCodex3 || o.set !== 'C.III'
+const inPlay = (state) => (o) => !(state.excludedSets ?? []).includes(o.set)
 
 /** Public objectives of one stage that are face up, in the order revealed. */
 export const revealedOfStage = (state, stage) =>
@@ -280,9 +284,6 @@ export function reducer(state, action) {
         vpTarget: Math.max(1, action.value),
         vpCustom: !!action.custom,
       }
-
-    case 'TOGGLE_CODEX3':
-      return { ...state, useCodex3: !state.useCodex3 }
 
     case 'START_STRATEGY':
       return { ...state, screen: 'strategy' }

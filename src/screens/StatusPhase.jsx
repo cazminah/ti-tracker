@@ -204,7 +204,7 @@ export function StatusPhase({ state, dispatch }) {
               <ObjectivePicker
                 options={availableSecrets(state)}
                 placeholder="Score a secret objective…"
-                confirmLabel="Confirm"
+                commitOnSelect
                 onConfirm={(objectiveId) => dispatch({ type: 'SCORE_SECRET', objectiveId })}
               />
             )}
@@ -246,13 +246,21 @@ export function StatusPhase({ state, dispatch }) {
           >
             {done ? `Stage ${stage} revealed` : `Reveal next objective (Stage ${stage})`}
           </button>
-          <button
-            type="button"
-            className="btn btn--ghost objbanner__undo"
-            onClick={() => dispatch({ type: 'STATUS_SEAT', delta: -1 })}
-          >
-            ← Back
-          </button>
+          {/*
+            * Going back is only offered until the card is turned over. Once it
+            * is, stepping back into the order would let a player score an
+            * objective that was face down when their turn came round, which the
+            * rules do not allow — and the way out is the agenda phase anyway.
+            */}
+          {!done && (
+            <button
+              type="button"
+              className="btn btn--ghost objbanner__undo"
+              onClick={() => dispatch({ type: 'STATUS_SEAT', delta: -1 })}
+            >
+              ← Back
+            </button>
+          )}
         </div>
       )}
 

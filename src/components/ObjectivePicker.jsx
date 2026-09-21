@@ -17,17 +17,24 @@ function grouped(options) {
 }
 
 /**
- * A drop-down of objectives plus the button that commits the choice. Used for
- * the two stage I objectives at setup, for each reveal in the status phase,
- * and for scoring a secret.
+ * A drop-down of objectives. Used for the two stage I objectives at setup, for
+ * each reveal in the status phase, and for scoring a secret.
+ *
+ * `commitOnSelect` drops the button and fires on the change instead, for the
+ * secret drop-down: picking from the list is already a deliberate act, and the
+ * banner offers an Undo afterwards, so a confirm step earns nothing. Reveals
+ * and the opening pair keep their button — those are not undoable.
  */
 export function ObjectivePicker({
   options,
   onConfirm,
   placeholder = 'Choose an objective…',
   confirmLabel = 'Confirm',
+  commitOnSelect = false,
   autoFocus = false,
 }) {
+  // Held only until the button is pressed; with commitOnSelect it stays empty
+  // so the select falls back to the placeholder once the choice is away.
   const [picked, setPicked] = useState('')
 
   const commit = () => {
@@ -36,13 +43,19 @@ export function ObjectivePicker({
     setPicked('')
   }
 
+  const change = (e) => {
+    const value = e.target.value
+    if (!commitOnSelect) return setPicked(value)
+    if (value) onConfirm(value)
+  }
+
   return (
     <div className="objpicker">
       <select
         className="select objpicker__select"
         value={picked}
         autoFocus={autoFocus}
-        onChange={(e) => setPicked(e.target.value)}
+        onChange={change}
       >
         <option value="">{placeholder}</option>
         {grouped(options).map((run, i) =>
@@ -63,14 +76,16 @@ export function ObjectivePicker({
           )
         )}
       </select>
-      <button
-        type="button"
-        className="btn btn--primary objpicker__btn"
-        disabled={!picked}
-        onClick={commit}
-      >
-        {confirmLabel}
-      </button>
+      {!commitOnSelect && (
+        <button
+          type="button"
+          className="btn btn--primary objpicker__btn"
+          disabled={!picked}
+          onClick={commit}
+        >
+          {confirmLabel}
+        </button>
+      )}
     </div>
   )
 }

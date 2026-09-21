@@ -74,22 +74,6 @@ export function SetupScreen({ state, dispatch }) {
         </span>
       </div>
 
-      <div className="vptarget">
-        <span className="vptarget__label">Codex III</span>
-        <button
-          type="button"
-          className={`vptarget__btn ${state.useCodex3 ? 'is-on' : ''}`}
-          aria-pressed={state.useCodex3}
-          onClick={() => dispatch({ type: 'TOGGLE_CODEX3' })}
-        >
-          {state.useCodex3 ? 'Included' : 'Excluded'}
-        </button>
-        <span className="vptarget__readout">
-          Codex III replaced three secret objectives rather than adding to the deck,
-          so with it out those three are simply not in play.
-        </span>
-      </div>
-
       <div className="setup">
         {SEATS.map((seat) => {
           const player = state.seats.find((s) => s.seat === seat)

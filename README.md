@@ -16,7 +16,7 @@ The app walks one round at a time through:
 
 | Screen | What it does |
 | --- | --- |
-| **Game Setup** | Colour + faction per seat, 1–6 clockwise. Colours and factions can't be double-picked. Victory point target, Codex III on or off, and the two opening stage I objectives are all set here. |
+| **Game Setup** | Colour + faction per seat, 1–6 clockwise. Colours and factions can't be double-picked. Victory point target, and the two opening stage I objectives are all set here. |
 | **Strategy Phase** | Draft in clockwise order from the speaker, two rows of four. A card goes out of the pool once taken. |
 | **Action Phase** | Initiative tiles in order; turns follow it. Strategy / tactical / pass, each behind a confirm. |
 | **Status Phase** | The eight status-phase steps, then objective scoring in initiative order. |
@@ -69,7 +69,10 @@ carries the rest:
 - **Scoring order.** The six players sit in a row in initiative order — the
   order set by the strategy cards drafted that round. The active player is
   lifted out of the row and named in a banner below it; **Next player →**
-  walks down the row, **← Back** goes the other way for a misclick.
+  walks down the row, **← Back** goes the other way for a misclick. Back
+  disappears the moment the round's card is turned over — stepping back in
+  after that would let someone score an objective that was face down when
+  their turn came round.
 - **Public objectives.** Two rows of five boxes, stage I above stage II.
   Clicking a revealed one scores it for the active player: their faction icon
   lands in the box and their score goes up by what the card is worth — 1 for a
@@ -86,16 +89,11 @@ carries the rest:
 - **Secret objectives.** The active player's banner carries a drop-down of
   every secret that can be scored in a status phase — action- and agenda-type
   secrets are excluded, and a secret someone else has already scored is gone
-  from the list for everyone. Confirm adds it to that player's box in the row
-  of six as a single line of its name; hovering it pops the full
-  `Name - description` up at the cursor. One secret per player per phase, with
-  an **Undo** beside it.
-- **Codex III.** Off by default, toggled at setup. The codex *replaced* three
-  secret objectives rather than adding to the deck, and the reference sheet
-  lists the replacements in place of the originals, so switching it off takes
-  those three out of play rather than swapping them back. All three are
-  action-type secrets, so today the switch only shows up once the action phase
-  can score a secret.
+  from the list for everyone. Picking one scores it there and then — no
+  confirm step, because the banner keeps an **Undo** beside it. It lands in
+  that player's box in the row of six as a single line of its name; hovering
+  it pops the full `Name - description` up at the cursor. One secret per
+  player per phase.
 
 The action- and agenda-phase secrets are in the data file but not yet wired to
 a screen.
