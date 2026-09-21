@@ -598,6 +598,8 @@ button.stratcard:not(:disabled):hover {
 @media (max-width: 800px) { .agenda__body { grid-template-columns: 1fr; } }
 .agenda__foot { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
 .agenda__total { margin: 0 0 0 auto; }
+.agenda__changehint { font-size: 13px; color: var(--gold); }
+.agendacard__override { display: block; font-size: 11.5px; font-weight: 600; color: var(--ink-dim); }
 
 .agendacard { min-height: 200px; }
 .agendacard__kind {

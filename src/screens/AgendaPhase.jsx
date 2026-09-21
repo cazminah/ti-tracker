@@ -229,7 +229,7 @@ function InfluenceRow({ state, dispatch, riderPick, setRiderPick }) {
 }
 
 /** The card as revealed, shaped like a public objective, with the winner lit. */
-function AgendaCard({ state, agenda, outcome, discarded }) {
+function AgendaCard({ state, agenda, outcome, discarded, overridden }) {
   const split = agenda.kind === 'for-against' ? splitOutcomes(agenda) : null
   const part = (key) =>
     !outcome ? '' : outcome === key ? 'is-won' : 'is-lost'
@@ -254,7 +254,10 @@ function AgendaCard({ state, agenda, outcome, discarded }) {
         </span>
       )}
       {outcome && agenda.kind !== 'for-against' && (
-        <span className="agendacard__elected">Elected: {outcomeLabel(state, agenda, outcome)}</span>
+        <span className="agendacard__elected">
+          Elected: {outcomeLabel(state, agenda, outcome)}
+          {overridden && <small className="agendacard__override">changed by an action card</small>}
+        </span>
       )}
     </div>
   )
@@ -335,7 +338,7 @@ function VotePills({ state, item, index, optionKey }) {
   )
 }
 
-function Options({ state, dispatch, item, index, agenda, live, riderPick, setRiderPick }) {
+function Options({ state, dispatch, item, index, agenda, live, riderPick, setRiderPick, changing, setChanging }) {
   const [draft, setDraft] = useState('')
   const options = optionsFor(state, item, agenda)
   const totals = voteTotals(item)
@@ -372,9 +375,14 @@ function Options({ state, dispatch, item, index, agenda, live, riderPick, setRid
           const onIt = mine?.option === o.key
           const won = item.outcome === o.key
           const inTie = tieKeys?.includes(o.key)
-          const clickable = !!predicting || (voter != null && !item.outcome) || inTie
+          // Changing the elected player: anyone but whoever holds it now.
+          const electable = changing && o.key !== item.outcome
+          const clickable = !!predicting || (voter != null && !item.outcome) || inTie || electable
           const click = () => {
-            if (predicting) {
+            if (electable) {
+              dispatch({ type: 'OVERRIDE_OUTCOME', option: o.key })
+              setChanging(false)
+            } else if (predicting) {
               dispatch({ type: 'PLAY_RIDER', ...predicting, option: o.key })
               setRiderPick(null)
             } else if (inTie) dispatch({ type: 'BREAK_TIE', option: o.key })
@@ -392,7 +400,7 @@ function Options({ state, dispatch, item, index, agenda, live, riderPick, setRid
                 won && 'is-won',
                 item.outcome && !won && 'is-lost',
                 inTie && 'is-tied',
-                predicting && 'is-predicting',
+                (predicting || electable) && 'is-predicting',
               ].filter(Boolean).join(' ')}
               style={o.hex ? { '--oc': o.hex } : undefined}
               onClick={clickable ? click : undefined}
@@ -500,6 +508,9 @@ function RiderBanner({ state, riderPick, onCancel }) {
 }
 
 function AgendaSection({ state, dispatch, item, index, riderPick, setRiderPick }) {
+  // Picking a new elected player, for the action cards that do that.
+  const [changing, setChanging] = useState(false)
+  const canChange = live && !!item.outcome && !item.discarded && item.agendaId && agendaById(item.agendaId).kind === 'player'
   const live = item === currentAgenda(state)
   const agenda = item.agendaId ? agendaById(item.agendaId) : null
   const started = item.voterIndex > 0 || Object.keys(item.votes).length > 0
@@ -581,7 +592,13 @@ function AgendaSection({ state, dispatch, item, index, riderPick, setRiderPick }
           )}
 
           <div className="agenda__body">
-            <AgendaCard state={state} agenda={agenda} outcome={item.outcome} discarded={item.discarded} />
+            <AgendaCard
+              state={state}
+              agenda={agenda}
+              outcome={item.outcome}
+              discarded={item.discarded}
+              overridden={item.overridden}
+            />
             <Options
               state={state}
               dispatch={dispatch}
@@ -591,6 +608,8 @@ function AgendaSection({ state, dispatch, item, index, riderPick, setRiderPick }
               live={live}
               riderPick={riderPick}
               setRiderPick={setRiderPick}
+              changing={changing && canChange}
+              setChanging={setChanging}
             />
           </div>
 
@@ -605,6 +624,17 @@ function AgendaSection({ state, dispatch, item, index, riderPick, setRiderPick }
                 ← Back
               </button>
             )}
+            {canChange && (
+              <button
+                type="button"
+                className={`btn btn--ghost ${changing ? 'is-on' : ''}`}
+                title="An action card elects a different player, whatever the votes said."
+                onClick={() => setChanging((c) => !c)}
+              >
+                {changing ? 'Cancel change' : 'Change elected player'}
+              </button>
+            )}
+            {changing && canChange && <span className="agenda__changehint">Click the player the action card elects.</span>}
             {live && item.outcome && (
               <button
                 type="button"

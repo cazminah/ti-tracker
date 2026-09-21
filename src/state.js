@@ -1244,6 +1244,22 @@ export function reducer(state, action) {
       return top > 0 && leaders.length === 1 ? resolveAgenda(next, leaders[0], state) : next
     }
 
+    /**
+     * An action card elects someone else, whatever the votes said. Elect
+     * player agendas only, and only while the outcome stands.
+     */
+    case 'OVERRIDE_OUTCOME': {
+      const item = currentAgenda(state)
+      const agenda = item?.agendaId && agendaById(item.agendaId)
+      if (!item?.outcome || item.discarded || agenda.kind !== 'player') return state
+      if (action.option === item.outcome) return state
+      const base = unsettle(state)
+      return settle(state, {
+        ...patchAgenda(base, { outcome: action.option, overridden: true }),
+        lawsInPlay: lawsAfter(item.lawsBefore, agenda, action.option),
+      })
+    }
+
     case 'BREAK_TIE': {
       const item = currentAgenda(state)
       if (speakerMustChoose(state, item) == null) return state
@@ -1258,7 +1274,7 @@ export function reducer(state, action) {
       // and the speaker back where they were, so the voting order is too.
       const base = item.outcome ? unsettle(state) : state
       return {
-        ...patchAgenda(base, { voterIndex: item.voterIndex - 1, outcome: null, lawsBefore: null, discarded: false }),
+        ...patchAgenda(base, { voterIndex: item.voterIndex - 1, outcome: null, lawsBefore: null, discarded: false, overridden: false }),
         lawsInPlay: item.outcome ? item.lawsBefore : state.lawsInPlay,
       }
     }
