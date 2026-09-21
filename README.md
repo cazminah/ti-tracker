@@ -182,12 +182,23 @@ columns stay pinned while the round columns scroll, which starts to matter
 around round six; below 940px nothing sticks and the whole table scrolls
 instead, since five pinned columns would cover what they exist to anchor.
 
-**Points from** is derived from the records that granted each point — who
-scored which objective, who holds the Shard, who is holding whose Support —
-rather than from a running log, so it survives every undo. Two things have no
-record of their own: Imperial's Mecatol Rex point, which keeps a tally, and
-anything nudged in from the developer bar, which shows as *Unrecorded*. The
-column therefore always adds up to the number beside it.
+**Points from** is derived from the records that granted each point — which
+secrets a player scored, who holds the Shard, who is holding whose Support —
+rather than from a running log, so it survives every undo. Imperial's Mecatol
+Rex point keeps a tally, being the one thing the card grants that leaves no
+trace; anything nudged in from the developer bar shows as *Unrecorded*.
+
+Public objectives are deliberately absent from that column. They appear below
+the table instead, as the two rows of cards the status phase uses, each
+carrying the crests of everyone who took it — saying it twice only made the
+column long enough to stop being readable.
+
+Every point that can change hands is colour-coded the same way wherever it
+appears, in a player box, in the action panel or on the end screen: secrets in
+the red of a secret objective card, Support for the Throne in the white of a
+promissory note, the custodians and Imperial points in Imperial's magenta, and
+the Shard in its own gold. The palette is one `.pill` rule with a `--pill`
+token per tone, so a colour is changed in one place.
 
 The draft history is logged at the *start* of each action phase, when that
 round's picks are final, so a game that ends mid-round still shows the round

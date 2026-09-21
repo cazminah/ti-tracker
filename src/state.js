@@ -208,56 +208,61 @@ export const playedRounds = (state) =>
     .sort((a, b) => a - b)
 
 /**
- * Where a seat's victory points came from, for the end screen.
+ * Points from everything *except* the public objectives, for the end screen —
+ * those are shown as the cards themselves, with the crests of everyone who
+ * took them, so listing them here as well would only say it twice.
  *
- * Everything is derived from the record that granted the point rather than
- * from a running log, so it stays right through every undo. The two things
- * with no record of their own are Imperial's Mecatol Rex point, which keeps a
- * tally, and anything nudged in by hand from the developer bar — reported as
- * unrecorded so the column always adds up to the score beside it.
+ * Each row is derived from the record that granted the point rather than from
+ * a running log, so it stays right through every undo. `tone` picks the pill
+ * the end screen dresses it in.
  */
 export function vpSources(state, seat) {
   const rows = []
 
-  for (const id of state.revealedObjectives || []) {
-    if (!scorersOf(state, id).includes(seat)) continue
-    const o = objectiveById(id)
-    if (o) rows.push({ key: id, label: o.name, note: `Stage ${o.stage} · ${o.description}`, points: pointsFor(o) })
-  }
-
   for (const o of secretsOf(state, seat)) {
-    rows.push({ key: `s:${o.id}`, label: o.name, note: `Secret · ${o.description}`, points: 1 })
+    rows.push({ key: `s:${o.id}`, tone: 'secret', label: o.name, note: `Secret · ${o.description}`, points: 1 })
   }
 
   if (state.custodiansSeat === seat) {
-    rows.push({ key: 'custodians', label: 'Custodians', note: 'First to Mecatol Rex', points: 1 })
+    rows.push({ key: 'custodians', tone: 'imperial', label: 'Custodians', note: 'First to Mecatol Rex', points: 1 })
   }
 
   const imperial = state.imperialPoints?.[seat] || 0
   if (imperial) {
-    rows.push({ key: 'imperial', label: 'Imperial (Mecatol Rex)', note: `Taken ${imperial}×`, points: imperial })
+    rows.push({
+      key: 'imperial',
+      tone: 'imperial',
+      label: 'Imperial · Mecatol Rex',
+      note: `Taken ${imperial}×`,
+      points: imperial,
+    })
   }
 
   if (state.shardSeat === seat) {
-    rows.push({ key: 'shard', label: 'Shard of the Throne', note: 'Relic', points: 1 })
+    rows.push({ key: 'shard', tone: 'shard', label: 'Shard of the Throne', note: 'Relic', points: 1 })
   }
 
   for (const giver of supportsHeldBy(state, seat)) {
     const from = seatOf(state, giver)
     rows.push({
       key: `sup:${giver}`,
+      tone: 'support',
       label: `Support from ${factionById(from.factionId)?.short ?? `P${giver}`}`,
       note: 'Promissory note',
       points: 1,
     })
   }
 
-  const counted = rows.reduce((sum, r) => sum + r.points, 0)
-  const rest = (state.scores[seat] || 0) - counted
-  if (rest !== 0) {
-    rows.push({ key: 'rest', label: 'Unrecorded', note: 'Adjusted by hand', points: rest })
-  }
   return rows
+}
+
+/** Points a seat holds that no record accounts for — dev-bar nudges, mostly. */
+export function unrecordedVP(state, seat) {
+  const publics = (state.revealedObjectives || [])
+    .filter((id) => scorersOf(state, id).includes(seat))
+    .reduce((sum, id) => sum + pointsFor(objectiveById(id)), 0)
+  const listed = vpSources(state, seat).reduce((sum, r) => sum + r.points, 0)
+  return (state.scores[seat] || 0) - publics - listed
 }
 
 /** Final standings: most victory points first, ties broken on initiative order. */

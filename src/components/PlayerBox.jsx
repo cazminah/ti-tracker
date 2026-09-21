@@ -61,7 +61,7 @@ export function PlayerBox({ state, seat, active, onSelect, onRevokeSupport }) {
 
       <div className="objplayer__secrets">
         {secrets.map((o) => (
-          <HoverTip key={o.id} className="objplayer__secret" tip={objectiveLabel(o)}>
+          <HoverTip key={o.id} className="pill pill--secret pill--tip" tip={objectiveLabel(o)}>
             {o.name}
           </HoverTip>
         ))}
@@ -73,7 +73,7 @@ export function PlayerBox({ state, seat, active, onSelect, onRevokeSupport }) {
             <button
               key={`s${giver}`}
               type="button"
-              className="objplayer__support is-live"
+              className="pill pill--support pill--live"
               title="Click to hand this note back to its owner."
               onClick={(e) => {
                 e.stopPropagation()
@@ -83,7 +83,7 @@ export function PlayerBox({ state, seat, active, onSelect, onRevokeSupport }) {
               {label}
             </button>
           ) : (
-            <span key={`s${giver}`} className="objplayer__support">
+            <span key={`s${giver}`} className="pill pill--support">
               {label}
             </span>
           )

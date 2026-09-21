@@ -735,22 +735,18 @@ button.vptarget__btn:hover { color: var(--ink); border-color: #55405a; }
 .gameover__vp { font-size: 19px; font-weight: 700; }
 .gameover__roundcol { white-space: nowrap; }
 
-/* Where a player's points came from, one line each. */
-.vpsrc { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.vpsrc__row {
-  display: flex; align-items: baseline; gap: 8px;
-  font-size: 12px; line-height: 1.35; color: var(--ink-dim);
-}
+/* Where a player's points came from, one pill each, in its source's colour. */
+.vpsrc { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.vpsrc .pill { display: flex; align-items: baseline; gap: 8px; }
 .vpsrc__label {
   flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .vpsrc__n {
-  flex: none; min-width: 14px; text-align: right;
-  font-variant-numeric: tabular-nums; font-weight: 700; color: var(--gold);
+  flex: none; min-width: 12px; text-align: right;
+  font-variant-numeric: tabular-nums; font-weight: 700;
 }
 /* Points nobody can account for shouldn't read as an achievement. */
-.vpsrc__row.is-rest { font-style: italic; }
-.vpsrc__row.is-rest .vpsrc__n { color: #c08a86; }
+.vpsrc .pill--rest { font-style: italic; }
 .gameover__none { color: var(--ink-dim); }
 .cardpill--mini { height: 22px; padding: 0 10px; font-size: 14px; }
 .gameover__total { text-align: center; margin-top: 18px; }
@@ -809,15 +805,36 @@ button.vptarget__btn:hover { color: var(--ink); border-color: #55405a; }
 }
 .objplayer__vp { margin-left: auto; font-size: 17px; font-weight: 700; }
 
-.objplayer__secrets { display: flex; flex-direction: column; gap: 3px; }
-.objplayer__secret {
-  display: block; cursor: help;
+/*
+ * One palette for everything that carries a victory point, so a secret reads
+ * the same in a player box, in the action panel and on the end screen. Each
+ * tone sets --pill to the channels of its source's own colour: the red of a
+ * secret objective card, the white of a promissory note, Imperial's magenta,
+ * the Shard's gold.
+ */
+.pill {
+  --pill: 216 184 106;
+  display: block; width: 100%; text-align: left;
   padding: 2px 6px; border-radius: 5px;
-  background: rgba(216, 184, 106, .12); border: 1px solid rgba(216, 184, 106, .3);
-  color: #e6cf84; font-size: 12px; line-height: 1.3;
+  border: 1px solid rgb(var(--pill) / .34);
+  background: rgb(var(--pill) / .13);
+  color: rgb(var(--pill));
+  font-size: 12px; line-height: 1.3;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.objplayer__secret:hover { background: rgba(216, 184, 106, .24); }
+.pill--secret   { --pill: 214 82 73; }
+.pill--support  { --pill: 219 226 238; }
+.pill--imperial { --pill: 198 90 166; }
+.pill--shard    { --pill: 226 176 52; }
+.pill--rest     { --pill: 150 154 168; }
+
+.pill--tip { cursor: help; }
+.pill--tip:hover { background: rgb(var(--pill) / .26); }
+/* Clickable pills: the Support notes, which can be handed back. */
+button.pill--live { cursor: pointer; }
+button.pill--live:hover { background: rgb(var(--pill) / .28); color: var(--ink); }
+
+.objplayer__secrets { display: flex; flex-direction: column; gap: 3px; }
 
 /* The bubble the secrets hang off. Fixed, because it is portalled to <body>. */
 .hovertip {
@@ -838,7 +855,7 @@ button.vptarget__btn:hover { color: var(--ink); border-color: #55405a; }
 }
 .objbanner__secret { flex: 1 1 380px; min-width: 260px; }
 .objbanner .objbanner__scored { color: var(--ink); font-size: 14px; }
-.objbanner__scored .objplayer__secret { display: inline-block; vertical-align: middle; }
+.objbanner__scored .pill { display: inline-block; width: auto; vertical-align: middle; }
 .objbanner__undo { padding: 7px 14px; font-size: 13px; }
 .objbanner__nav { display: flex; gap: 8px; margin-left: auto; }
 .objbanner__nav .btn { padding: 9px 16px; }
@@ -884,6 +901,10 @@ button.vptarget__btn:hover { color: var(--ink); border-color: #55405a; }
   width: 28px; height: 28px; border-radius: 50%;
   border: 1px solid var(--pc); background: color-mix(in srgb, var(--pc) 28%, var(--panel2));
 }
+
+/* The end screen's cards: the same panel, with nothing to press. */
+.objcard--flat { cursor: default; }
+.objcard--flat:hover { transform: none; border-color: var(--line); box-shadow: none; }
 
 /* A face-down slot is scenery: nothing to click, nothing to focus. */
 .objcard--back {
@@ -1038,19 +1059,6 @@ button.vptarget__btn:hover { color: var(--ink); border-color: #55405a; }
 /* Four secrets means The Obsidian — legal, but worth a second look. */
 .objplayer__count.is-over { color: #e6cf84; border-color: rgba(216, 184, 106, .5); }
 
-/* A Support for the Throne sits with its holder, coloured by who gave it. */
-.objplayer__support {
-  display: block; width: 100%; text-align: left;
-  padding: 2px 6px; border-radius: 5px;
-  border: 1px solid rgba(120, 160, 220, .35); background: rgba(120, 160, 220, .12);
-  color: #b9cdee; font-size: 12px; line-height: 1.3;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-button.objplayer__support.is-live { cursor: pointer; }
-button.objplayer__support.is-live:hover {
-  background: rgba(120, 160, 220, .26); color: var(--ink);
-}
-
 /* --- the selected player's secrets, each with its undo --- */
 
 .vp__scored { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
@@ -1058,10 +1066,8 @@ button.objplayer__support.is-live:hover {
   font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-dim);
 }
 .vp__chip {
-  display: inline-flex; align-items: center; gap: 6px; cursor: help;
+  display: inline-flex; width: auto; align-items: center; gap: 6px;
   padding: 3px 4px 3px 9px; border-radius: 6px;
-  border: 1px solid rgba(216, 184, 106, .35); background: rgba(216, 184, 106, .12);
-  color: #e6cf84; font-size: 12px;
 }
 .vp__chipx {
   width: 17px; height: 17px; padding: 0; line-height: 1; cursor: pointer;
@@ -1079,3 +1085,9 @@ button.objplayer__support.is-live:hover {
 }
 .imperial__check input { width: 16px; height: 16px; accent-color: var(--accent); }
 .imperial__total { margin-right: auto; font-weight: 700; color: var(--gold); }
+
+/* The end screen's public objective rows sit under the table, left-aligned
+   against the centred headline above them. */
+.gameover__pubhead { text-align: left; margin-top: 26px; }
+.gameover__publics { text-align: left; }
+.gameover__publics .objrow__head:first-of-type { margin-top: 0; }

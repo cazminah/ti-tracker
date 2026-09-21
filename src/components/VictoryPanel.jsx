@@ -129,7 +129,7 @@ export function VictoryPanel({ state, dispatch, activeSeat }) {
             <div className="vp__scored">
               <span className="vp__scoredlabel">Secrets held</span>
               {secrets.map((o) => (
-                <HoverTip key={o.id} className="vp__chip" tip={objectiveLabel(o)}>
+                <HoverTip key={o.id} className="pill pill--secret pill--tip vp__chip" tip={objectiveLabel(o)}>
                   {o.name}
                   <button
                     type="button"

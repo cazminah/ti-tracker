@@ -1,7 +1,16 @@
 import { FactionCrest } from '../components/FactionCrest'
 import { colorById, readableInk } from '../data/colors'
 import { factionById } from '../data/factions'
-import { cardForSeat, playedRounds, seatOf, standings, timeFor, vpSources } from '../state'
+import { ObjectiveRow } from '../components/ObjectiveRow'
+import {
+  cardForSeat,
+  playedRounds,
+  seatOf,
+  standings,
+  timeFor,
+  unrecordedVP,
+  vpSources,
+} from '../state'
 import { formatDuration } from '../time'
 
 /** "The Federation of Sol" reads badly after "our new", so the article goes. */
@@ -44,6 +53,7 @@ export function GameOverScreen({ state, dispatch }) {
               const color = colorById(player.color)
               const faction = factionById(player.factionId)
               const sources = vpSources(state, seat)
+              const unrecorded = unrecordedVP(state, seat)
               return (
                 <tr
                   key={seat}
@@ -62,21 +72,23 @@ export function GameOverScreen({ state, dispatch }) {
                   </td>
                   <td className="gameover__stick gameover__vpcol gameover__num gameover__vp">{state.scores[seat] ?? 0}</td>
                   <td className="gameover__stick gameover__srccol">
-                    {/* Derived from the records that granted each point, so it
-                        always reconciles with the number beside it. */}
+                    {/* Public objectives are left out: the rows of cards below
+                        already show who took which, with their crests on them. */}
                     <ul className="vpsrc">
                       {sources.map((src) => (
-                        <li
-                          key={src.key}
-                          className={`vpsrc__row ${src.key === 'rest' ? 'is-rest' : ''}`}
-                          title={src.note}
-                        >
+                        <li key={src.key} className={`pill pill--${src.tone}`} title={src.note}>
                           <span className="vpsrc__label">{src.label}</span>
                           <span className="vpsrc__n">{src.points}</span>
                         </li>
                       ))}
-                      {!sources.length && (
-                        <li className="vpsrc__row gameover__none">—</li>
+                      {!!unrecorded && (
+                        <li className="pill pill--rest" title="Adjusted by hand">
+                          <span className="vpsrc__label">Unrecorded</span>
+                          <span className="vpsrc__n">{unrecorded}</span>
+                        </li>
+                      )}
+                      {!sources.length && !unrecorded && (
+                        <li className="gameover__none">—</li>
                       )}
                     </ul>
                   </td>
@@ -106,6 +118,12 @@ export function GameOverScreen({ state, dispatch }) {
             })}
           </tbody>
         </table>
+      </div>
+
+      <h2 className="screen__h2 gameover__pubhead">Public Objectives</h2>
+      <div className="gameover__publics">
+        <ObjectiveRow state={state} stage="I" />
+        <ObjectiveRow state={state} stage="II" />
       </div>
 
       <p className="hint gameover__total">
