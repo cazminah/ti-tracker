@@ -1,0 +1,8 @@
+   {
+     "name": "ti-tracker",
+     "compatibility_date": "2026-09-01",
+     "assets": { "directory": "./dist" },   // wherever your build outputs
+     "routes": [
+       { "pattern": "ti-tracker.cazminah.me", "custom_domain": true }
+     ]
+   }
