@@ -30,8 +30,8 @@ function TradeGoods({ count }) {
 }
 
 /**
- * One strategy card as shown during the action phase: the blown-up initiative
- * numeral, then who holds it, then the card's name.
+ * One strategy card as shown during the action phase: who holds it, then the
+ * blown-up initiative numeral, then the card's name.
  *
  * Three independent bits of state, deliberately shown differently:
  *   - `active` (their turn right now) rings the whole tile and pulses.
@@ -55,19 +55,20 @@ export function InitiativeTile({
       className={`inittile inittile--${tone} ${active ? 'inittile--active' : ''}`}
       style={{ '--hue': card.hue, '--hue-ink': readableInk(card.hue) }}
     >
+      <OwnerBanner owner={owner} />
+
       <div className="initcrop">
         <FallbackImage
           sources={[`/assets/cards/${card.id}.png`, card.art]}
           fallback={<DrawnInitiative card={card} />}
           alt={`Initiative ${card.initiative}`}
           className="initcrop__img"
+          style={card.artCropY ? { top: `${card.artCropY * 100}%` } : undefined}
         />
         <TradeGoods count={tradeGoods} />
         {/* Sits outside the dimmed artwork so it stays legible. */}
         {passed && <span className="inittile__passed">Passed</span>}
       </div>
-
-      <OwnerBanner owner={owner} />
 
       {/* The stamp sits outside .inittile__name so the dimming doesn't reach it. */}
       <div className="inittile__namewrap">

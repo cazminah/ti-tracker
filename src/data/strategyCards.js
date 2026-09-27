@@ -61,6 +61,10 @@ export const STRATEGY_CARDS = [
     edition: 'Prophecy of Kings',
     hue: '#5ba14c',
     art: `${CDN}/5/5e/Newconstruction.png`,
+    // This scan is trimmed tighter at the top than the other seven, so the
+    // shared initiative crop lands low on it. Push it down by this fraction of
+    // the crop box to line the numeral up. Drop it if a local image replaces it.
+    artCropY: 0.08,
     primary: [
       'Place 1 PDS or 1 Space Dock on a planet you control.',
       'Place 1 PDS on a planet you control.',

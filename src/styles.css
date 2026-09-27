@@ -133,6 +133,8 @@ button { font: inherit; color: inherit; }
 .screen__h2 { margin: 26px 0 10px; font-size: 16px; color: var(--gold); letter-spacing: .1em; text-transform: uppercase; }
 .screen__sub { margin: 0 0 20px; color: var(--ink-dim); }
 .screen__actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
+/* Back sits hard left, away from Confirm, so the two aren't mis-hit. */
+.screen__back { margin-right: auto; }
 
 .hint { color: var(--ink-dim); font-size: 13px; text-align: right; margin: 8px 0 0; }
 

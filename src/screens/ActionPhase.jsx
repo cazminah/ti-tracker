@@ -211,6 +211,20 @@ export function ActionPhase({ state, dispatch }) {
           </div>
 
           <div className="screen__actions">
+            {/* Returns the turn to the last player and takes back what they did with it. */}
+            <button
+              type="button"
+              className="btn btn--ghost screen__back"
+              disabled={!state.turnLog?.length}
+              title={
+                state.turnLog?.length
+                  ? `Back to ${factionById(seatOf(state, state.turnLog.at(-1).seat).factionId).short}, undoing their action`
+                  : 'No earlier turn this round'
+              }
+              onClick={() => dispatch({ type: 'PREVIOUS_TURN' })}
+            >
+              ← Back
+            </button>
             <button
               type="button"
               className="btn btn--primary"

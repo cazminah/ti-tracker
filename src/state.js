@@ -61,6 +61,7 @@ export const initialState = () => ({
   shardSeat: null,         // who holds the Shard of the Throne, which can be stolen
   supports: {},            // giver seat -> the seat holding their Support for the Throne
   turnSeq: 0,              // monotonic turn counter; only the custodians lock reads it
+  turnLog: [],             // this round's finished turns, newest last, for the Back button
   imperialPrompt: false,   // Imperial's strategy action is mid-resolution
   imperialPoints: {},      // seat -> Mecatol Rex points taken off Imperial, for the tally
 
@@ -688,8 +689,21 @@ function withVP(before, after, seat, delta) {
   return { ...scored, endPrompt: { seat, undo: { ...before, endPrompt: null } } }
 }
 
-function advanceTurn(state, actingSeat) {
-  const banked = bankTime(state, actingSeat)
+/**
+ * End `actingSeat`'s turn and hand over to the next player still in. `undo`
+ * says what the turn changed that Back has to put right — any of `cardId`
+ * (exhausted), `passed`, `speakerSeat` (the one before Politics moved it),
+ * `objectiveId` and `mecatol` (what Imperial scored).
+ */
+function advanceTurn(state, actingSeat, undo = {}) {
+  const logged = {
+    ...state,
+    turnLog: [
+      ...(state.turnLog || []),
+      { ...undo, seat: actingSeat, turnIndex: state.turnIndex, turnSeq: state.turnSeq },
+    ],
+  }
+  const banked = bankTime(logged, actingSeat)
   const order = initiativeOrder(state.picks)
   for (let i = 1; i <= order.length; i++) {
     const idx = (state.turnIndex + i) % order.length
@@ -817,6 +831,7 @@ export function reducer(state, action) {
         initiativeSeats: initiativeOrder(state.picks),
         turnStartedAt: Date.now(),
         turnSeq: state.turnSeq + 1,
+        turnLog: [],
       }
     }
 
@@ -835,11 +850,11 @@ export function reducer(state, action) {
         // over, so in each case their clock keeps running behind the prompt.
         if (card.id === 'politics') return { ...next, speakerPrompt: true }
         if (card.id === 'imperial') return { ...next, imperialPrompt: true }
-        return advanceTurn(next, seat)
+        return advanceTurn(next, seat, { cardId: card.id })
       }
 
       if (state.pendingAction === 'pass') {
-        return advanceTurn({ ...state, passed: [...state.passed, seat] }, seat)
+        return advanceTurn({ ...state, passed: [...state.passed, seat] }, seat, { passed: true })
       }
 
       return advanceTurn(state, seat) // tactical / component
@@ -849,8 +864,52 @@ export function reducer(state, action) {
       const seat = activeSeat(state)
       return advanceTurn(
         { ...state, speakerSeat: action.seat, speakerPrompt: false },
-        seat
+        seat,
+        { cardId: 'politics', speakerSeat: state.speakerSeat }
       )
+    }
+
+    /**
+     * Back: hand the turn to whoever had it last and take back the action
+     * they closed it with. Anything else scored along the way stays put — it
+     * has its own undo on the victory panel.
+     */
+    case 'PREVIOUS_TURN': {
+      const last = state.turnLog?.at(-1)
+      if (!last || state.screen !== 'action') return state
+      if (state.speakerPrompt || state.imperialPrompt || state.endPrompt) return state
+      const { seat } = last
+      let next = bankTime(state, activeSeat(state))
+
+      if (last.cardId) next = { ...next, exhausted: next.exhausted.filter((id) => id !== last.cardId) }
+      if (last.passed) next = { ...next, passed: next.passed.filter((s) => s !== seat) }
+      if (last.speakerSeat != null) next = { ...next, speakerSeat: last.speakerSeat }
+      if (last.objectiveId) {
+        next = bumpVP({
+          ...next,
+          objectiveScorers: {
+            ...next.objectiveScorers,
+            [last.objectiveId]: scorersOf(next, last.objectiveId).filter((s) => s !== seat),
+          },
+        }, seat, -pointsFor(objectiveById(last.objectiveId)))
+      }
+      if (last.mecatol) {
+        next = bumpVP({
+          ...next,
+          imperialPoints: { ...next.imperialPoints, [seat]: Math.max(0, (next.imperialPoints[seat] || 0) - 1) },
+        }, seat, -1)
+      }
+
+      return {
+        ...next,
+        turnLog: state.turnLog.slice(0, -1),
+        turnIndex: last.turnIndex,
+        // Rewinding the counter puts the custodians token back in reach if
+        // it was taken on the turn being returned to.
+        turnSeq: last.turnSeq,
+        pendingAction: null,
+        turnStartedAt: Date.now(),
+      }
     }
 
     // Only a step up *onto* the target opens the prompt, so nudging a
@@ -893,6 +952,7 @@ export function reducer(state, action) {
       const seat = activeSeat(state)
       if (seat == null || !state.imperialPrompt) return state
       let next = { ...state, imperialPrompt: false }
+      const undo = { cardId: 'imperial', objectiveId: null, mecatol: false }
 
       const objective = objectiveById(action.objectiveId)
       // Imperial is not the status phase, so this is free of the one-public
@@ -900,6 +960,7 @@ export function reducer(state, action) {
       if (objective && state.revealedObjectives.includes(objective.id)) {
         const scorers = scorersOf(state, objective.id)
         if (!scorers.includes(seat)) {
+          undo.objectiveId = objective.id
           next = bumpVP(
             { ...next, objectiveScorers: { ...next.objectiveScorers, [objective.id]: [...scorers, seat] } },
             seat,
@@ -908,6 +969,7 @@ export function reducer(state, action) {
         }
       }
       if (action.mecatol) {
+        undo.mecatol = true
         // The only point in the game with no record of its own, so it gets a
         // tally — otherwise the end screen could not say where it came from.
         next = bumpVP(
@@ -921,7 +983,7 @@ export function reducer(state, action) {
       // over the total rather than firing halfway through the card.
       const gained = (next.scores[seat] || 0) - (state.scores[seat] || 0)
       const scored = withVP(state, next, seat, gained)
-      return scored.endPrompt ? scored : advanceTurn(scored, seat)
+      return scored.endPrompt ? scored : advanceTurn(scored, seat, undo)
     }
 
     // ------------------------------------------------- action phase victory points
@@ -1341,7 +1403,7 @@ export function reducer(state, action) {
         }
       }
       if (target === 'action') {
-        return { ...next, screen: 'action', turnIndex: 0, pendingAction: null, turnStartedAt: Date.now() }
+        return { ...next, screen: 'action', turnIndex: 0, pendingAction: null, turnLog: [], turnStartedAt: Date.now() }
       }
       if (target === 'status') return enterStatus({ ...next, turnStartedAt: null })
       return { ...next, screen: target, turnStartedAt: null }
